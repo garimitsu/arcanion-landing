@@ -83,11 +83,8 @@ Some third-party material ships alongside it:
 - `fonts/AstronBoy.otf` — Astron Boy by Raymond Larabie, released under
   [CC0](https://creativecommons.org/publicdomain/zero/1.0/). Free to
   redistribute.
-- `fonts/DigitalCards-Regular.ttf` — Digital Cards, © 2023 177Studio.com, **all
-  rights reserved**. Bundled here because it is the display typeface the whole
-  design is set in. Confirm your licence covers webfont use and redistribution
-  before this repository stays public. To drop it, delete the file — the type
-  falls back to Orbitron, which is already loaded, with no other change needed.
+- `fonts/DigitalCards-Regular.ttf` — Digital Cards, © 2023 177Studio.com.
+  Bundled deliberately: it is the display typeface the whole design is set in.
 - `images/*.png` — provider and engine logos, used nominatively to name the
   services Arcanion connects to. Each mark belongs to its owner.
 - `templates/comingsoon/*.mp4` — previews of games built with Arcanion.
