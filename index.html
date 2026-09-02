@@ -1,0 +1,2394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Arcanion — best models, all-in-one.</title>
+
+<!--
+  ============================================================================
+  ARCANION LANDING
+  ============================================================================
+  One self-contained document. No build step, no bundler, no framework: open
+  index.html over http and it runs. Everything below — tokens, styles, the
+  three.js scene, the scroll controller — lives in this file on purpose.
+
+  Sections: hero -> games -> models -> explore (the tunnel corridor, one
+  continuous scroll out of models).
+
+  Notes for anyone editing it:
+    * Fonts: Orbitron / Rajdhani / JetBrains Mono come from Google Fonts;
+      Digital Cards and AstronBoy are the two local faces in /fonts/.
+    * three.js and Lenis load from unpkg. If the CDN is unreachable the page
+      fails SOFT — the 3D scene is skipped, the failure is logged, and all copy
+      is revealed rather than staying hidden behind a reveal animation.
+    * UnrealBloomPass is constructed but `enabled = false`. The point clouds
+      fake their own glow in-fragment; a real bloom over points this fine
+      flickers. It stays in the chain so the composite order is unchanged.
+    * The warp tunnel built for the preloader is kept alive rather than
+      disposed, and faded back in as the corridor backdrop — the camera dives
+      through the disc and emerges in the model tunnel.
+    * Motion is JS-timed throughout; the page uses no CSS transitions except
+      the corridor card's 720ms flip.
+
+  CTA wiring: set STANDALONE_LINKS near the top of the module script to point
+  "Enter Studio" / "Pricing" / "Start Building" at real URLs. Left empty they
+  are no-ops.
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+<!-- Models-section previews, preloaded so the plates fill from the first
+     paint. These URLs are baked into TOP_MODELS below and MUST be kept in
+     step with it. -->
+<link rel="preload" as="image" href="https://huggingface.co/tencent/HunyuanWorld-1/resolve/main/assets/teaser.png" />
+<link rel="preload" as="image" href="https://cdn-thumbnails.huggingface.co/social-thumbnails/models/Lightricks/LTX-Video.png" />
+<link rel="preload" as="image" href="https://raw.githubusercontent.com/SkyworkAI/Matrix-3D/HEAD/asset/logo.PNG" />
+<link rel="preload" as="image" href="https://cdn-thumbnails.huggingface.co/social-thumbnails/models/hpcai-tech/Open-Sora-v2.png" />
+<link rel="preload" as="image" href="https://opengraph.githubassets.com/1/leigest519/OpenGame" />
+
+<style>
+/* ─── Local @font-face (island deviation #1) ─────────────────────────────── */
+@font-face{font-family:'Digital Cards Regular';src:url('/fonts/DigitalCards-Regular.ttf') format('truetype');font-weight:100 900;font-style:normal;font-display:swap}
+@font-face{font-family:'AstronBoy';src:url('/fonts/AstronBoy.otf') format('opentype');font-weight:400;font-style:normal;font-display:swap}
+
+/* ─── Tokens ─────────────────────────────────────────────────────────────── */
+:root{
+  /* void scale */
+  --background:#07070f; --foreground:#ffffff;
+  --void-0:#07070f; --void-1:#0a0a12; --void-2:#11111c; --void-3:#1a1a2a; --line:#2a2a3e;
+
+  /* dominant accent (Galaxia magenta) + its ramp, dark → light */
+  --accent:#ff00cc; --accent-soft:rgba(255,0,204,.55); --accent-dim:rgba(255,0,204,.16); --accent-ink:#16000f;
+  --accent-900:#1a0416; --accent-800:#3c0633; --accent-700:#6b0a5c; --accent-600:#b80d9c;
+  --accent-500:#ff00cc; --accent-400:#ff5cdd; --accent-300:#ff9fea; --accent-200:#ffd9f7;
+
+  /* the single scarce hot accent (electric violet) + its softer ring */
+  --signal-glow:#8800ff; --signal-ring:#a78bfa;
+
+  --text:#ffffff; --text-dim:rgba(255,255,255,.68); --text-faint:rgba(255,255,255,.4);
+
+  --skew:-8deg; --unskew:8deg;
+  --shadow-loader-rail:0 0 16px -2px rgba(255,0,204,.9);
+
+  /* frosted chrome — dark glass, mandatory neon hairline */
+  --glass:rgba(10,10,20,.82); --glass-border:rgba(255,0,204,.3);
+
+  /* masthead ramp: hot end white, far end hazed */
+  --hero-hot:#ffffff; --hero-haze:rgba(255,217,247,.2);
+
+  /* the card treatment: white->violet gradient text fill */
+  --violet:#a78bfa;
+  --gradient-card-text:linear-gradient(135deg,#ffffff 0%,#a78bfa 100%);
+
+  /* shared CTA sweep — bright at the glyph end, void at the label end */
+  --gradient-cta:linear-gradient(107deg,#ff00cc 0%,#6b0a5c 51.442%,#1a0416 100%);
+  /* pillar underlines: left column full accent, right column violet, each fading to centre */
+  --gradient-rule:linear-gradient(90deg,#ff00cc 0%,rgba(255,0,204,0) 100%);
+  --gradient-rule-alt:linear-gradient(90deg,rgba(167,139,250,0) 0%,#a78bfa 100%);
+  /* models rail + tick */
+  --rail:rgba(255,140,230,.22);
+  --gradient-tick:linear-gradient(180deg,rgba(255,0,204,0) 0%,rgba(255,0,204,.55) 100%);
+
+  /* font roles — one job each, never reversed */
+  --font-display:'Digital Cards Regular','Orbitron',sans-serif;
+  --font-display-2:'Orbitron',sans-serif;
+  --font-label:'AstronBoy',sans-serif;
+  --font-prose:'Rajdhani','Inter',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+
+  /* live layout scalars, written by JS */
+  --fit-contain:1; --fit-width:1;
+}
+
+/* ─── Reset / shell ──────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box}
+html{font-size:16px;overflow-x:hidden;overscroll-behavior-y:none;scrollbar-width:none}
+html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
+body{margin:0;background:var(--background);color:var(--foreground);font-family:var(--font-prose);-webkit-font-smoothing:antialiased}
+button{cursor:pointer;border:none;background:none;font:inherit;color:inherit;padding:0}
+ul{list-style:none;margin:0;padding:0}
+a{color:inherit;text-decoration:none}
+img,svg{display:block;max-width:100%}
+input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Every Digital Cards face: the payment menu's white→violet card gradient.
+   The glow is a drop-shadow, not a text-shadow — a text-shadow behind a
+   transparent text fill shows *through* the glyphs as a blur. */
+.u-grad{
+  background-image:var(--gradient-card-text);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;
+  filter:drop-shadow(0 0 16px var(--accent-soft)) drop-shadow(0 0 34px var(--accent-dim));
+}
+
+/* ─── Scene canvas + vignette scrim ──────────────────────────────────────── */
+.scene-wrap{
+  position:fixed;inset:0;height:100vh;height:100lvh;width:100vw;width:100lvw;
+  pointer-events:none;z-index:0;
+  transform:translateZ(0);backface-visibility:hidden;will-change:transform,opacity;
+}
+.scene-wrap canvas{display:block;width:100%;height:100%}
+.scene-overlay{
+  position:absolute;inset:0;pointer-events:none;
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.5) 0%, rgba(0,0,0,.16) 24%, rgba(0,0,0,0) 42%,
+                           rgba(0,0,0,0) 58%, rgba(0,0,0,.14) 78%, rgba(0,0,0,.42) 100%),
+    linear-gradient(180deg, rgba(0,0,0,.42) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,0) 58%,
+                            rgba(0,0,0,.38) 82%, rgba(0,0,0,.72) 100%);
+}
+@media (max-width:768px){
+  .scene-overlay{background:linear-gradient(180deg, rgba(0,0,0,.5) 0%, rgba(0,0,0,.24) 26%,
+     rgba(0,0,0,.24) 62%, rgba(0,0,0,.5) 86%, rgba(0,0,0,.78) 100%)}
+}
+
+/* ─── Scroll anchors: pure scroll length, one per composition ────────────── */
+.scroller{position:relative;z-index:1;pointer-events:none}
+.slide{width:100%}
+#hero{height:140vh}
+#sitemap{height:300vh}   /* seven tiles of rail to travel */
+#timeline{height:380vh;margin-top:300px}   /* five stations of rail to travel */
+#impact{height:460vh;margin-top:96px}   /* the corridor needs the travel */
+@media (max-width:855px){ #timeline{margin-top:200px} }
+@media (max-width:480px){ #timeline{margin-top:140px} }
+
+/* ─── Compositions: fixed overlays, faded by their own scene-fade ────────── */
+.comp{position:fixed;inset:0;overflow:hidden;z-index:60;opacity:0;pointer-events:none}
+.comp.is-live{pointer-events:auto}
+.comp.is-live *{pointer-events:auto}
+/* `pointer-events:none` on the composition is NOT enough on its own: a descendant
+   that sets `pointer-events:auto` (`.emc`, `.emc-front`, `.hdc`) re-enables itself
+   regardless of its ancestor, so a composition at opacity 0 keeps hit-testing.
+   Every one of these is a fixed, full-viewport overlay stacked on every other —
+   so the invisible EXPLORE corridor was swallowing clicks aimed at the hero, and
+   its start bar sits pixel-for-pixel over the hero's. Kill it at the root. */
+.comp:not(.is-live) *{pointer-events:none}
+
+/* the 1440×800 authored design frame, scaled as one unit */
+.frame{position:absolute;top:50%;left:50%;width:1440px;height:800px;transform-origin:50% 50%}
+.frame[data-fit="contain"]{transform:translate(-50%,-50%) scale(var(--fit-contain))}
+.frame[data-fit="width"]{transform:translate(-50%,-50%) scale(var(--fit-width))}
+
+/* ─── The skew language ──────────────────────────────────────────────────── */
+.pill{
+  position:relative;display:flex;align-items:center;
+  transform:skewX(var(--skew));
+  border:1px solid var(--glass-border);
+  background:var(--glass);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  box-shadow:0 0 28px var(--accent-dim), 0 18px 44px rgba(0,0,0,.55);
+}
+.pill>*{transform:skewX(var(--unskew))}
+.brackets{
+  position:absolute;inset:6px;pointer-events:none;opacity:.85;transform:none !important;
+  background:
+    linear-gradient(var(--accent),var(--accent)) top    left  / 10px 2px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) top    left  / 2px 10px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) top    right / 10px 2px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) top    right / 2px 10px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) bottom left  / 10px 2px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) bottom left  / 2px 10px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) bottom right / 10px 2px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) bottom right / 2px 10px no-repeat;
+}
+
+/* ─── Corner icon ────────────────────────────────────────────────────────── */
+/* The page's own portrait mark, pinned at the literal top-left corner of the
+   viewport (Higgsfield-style: small, no border/ring/glow — just the mark).
+   It lives OUTSIDE `.nav` on purpose: `.nav` carries a `transform` (JS-driven
+   scale + centering in `layout()`), and any transformed ancestor becomes the
+   containing block for a `position:fixed` descendant — so a fixed child of
+   `.nav` would track the NAV's box, not the viewport corner. As a body-level
+   sibling it stays glued to the true corner at every viewport size. */
+.corner-icon{
+  --icon-d:36px;                 /* the one number to change to resize it */
+  position:fixed;top:16px;left:16px;z-index:130;opacity:0;pointer-events:auto;
+}
+.corner-icon-btn{
+  display:block;width:var(--icon-d);height:var(--icon-d);border-radius:8px;overflow:hidden;
+}
+.corner-icon-btn img{width:100%;height:100%;object-fit:cover;object-position:50% 12%}
+
+/* ─── Nav ────────────────────────────────────────────────────────────────── */
+.nav{position:fixed;left:50%;z-index:120;transform-origin:top center;pointer-events:none}
+.nav-row{position:relative;display:flex;align-items:center;gap:4px;pointer-events:auto}
+.nav .pill{opacity:0}
+.nav-links{padding:12px 32px}
+.nav-links ul{display:flex;gap:30px}
+/* The links wear the white→violet card fill
+   `.lumen-card-name`), the same treatment as every other display face here.
+   The glow is a drop-shadow FILTER, never a text-shadow — a text-shadow behind
+   a transparent text fill shows through the glyphs as a blur. Each button is
+   its own box, so each runs the full white→violet ramp across itself, exactly
+   like one pricing card's name. */
+.nav-links button{
+  font-family:var(--font-display-2);font-weight:600;font-size:13px;letter-spacing:.18em;
+  text-transform:uppercase;white-space:nowrap;
+  background-image:var(--gradient-card-text);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;
+  filter:drop-shadow(0 0 12px var(--accent-dim));
+}
+.nav-cta{padding:0}
+.nav-cta button{
+  display:flex;align-items:center;gap:8px;padding:12px 28px;
+  background-image:var(--gradient-cta);
+  font-family:var(--font-display-2);font-weight:700;font-size:13px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--text);white-space:nowrap;
+}
+.nav-cta .dot{width:3px;height:3px;background:var(--foreground);flex:0 0 auto}
+
+/* ─── Mastheads ──────────────────────────────────────────────────────────── */
+/* Digital Cards, like every other display face on the page. It carries the
+   white→violet card gradient the same way — but PER LETTER, painted in JS, not
+   via .u-grad: the reveal animates each letter's own opacity, and an opacity on
+   a child of a `background-clip:text` parent isolates it and breaks the clip.
+   Per-letter `color` gives the identical ramp and keeps the text-shadow glow,
+   which a transparent text fill would show straight through. */
+.masthead{
+  /* Wide enough that no line ever has to break. 200 + 1040/2 = 720 = the design
+     frame's centre, so it stays centred. */
+  position:absolute;top:100px;left:200px;width:1040px;text-align:center;
+  font-family:var(--font-display);font-weight:400;font-size:28px;line-height:1;
+  letter-spacing:.03em;text-transform:uppercase;margin:0;
+  text-shadow:0 0 18px var(--accent-soft);
+}
+/* nowrap is load-bearing: the per-letter reveal makes every letter its own
+   inline-block, so the line can break between ANY two letters — that is how a
+   trailing "S" ended up alone on a third line. */
+.mline{display:block;white-space:nowrap}
+.mline span{display:inline-block;white-space:pre;opacity:0;will-change:transform,opacity,filter}
+
+/* ─── Hero pieces ────────────────────────────────────────────────────────── */
+/* ── The hero deck: three tilted section cards on the side walls ──────────
+   Same wall language as the EXPLORE corridor — a perspective stage,
+   cards pushed out to ±--wall-x and turned to face the centre — but there is
+   no tube here and no scroll fly: three fixed shortcuts into what the page is
+   selling (Games · Models · the Unreal link), left where the galaxy has room.
+
+   The whole transform lives HERE, including the entrance: `--fly` is the single
+   scalar the reveal writes each frame (1 = out through the fourth wall, square
+   on to the viewer; 0 = seated on its wall). Keeping the geometry in one place
+   means JS never restates the wall numbers, and a card that is never animated at
+   all — the no-scene fallback, where no JS runs — still lands on its wall. */
+.hero-deck{position:absolute;inset:0;perspective:1150px;perspective-origin:50% 50%;pointer-events:none}
+.hero-deck-in{position:absolute;inset:0;transform-style:preserve-3d}
+/* Sized 0.7× the previous 510×324 (358×226 — net ~5% over the original
+   340×216, since 1.5 × 0.7 = 1.05) — every inner px value below (padding,
+   notch, icon caps, name size) is scaled by the same 0.7 so the smaller box
+   doesn't just crush its own padding. */
+.hdc{
+  --fly:0;
+  position:absolute;left:50%;top:50%;width:358px;height:226px;margin:-113px 0 0 -179px;
+  /* No preserve-3d here (unlike .emc, which has a flip child): the card has no
+     3D children, and the reveal's blur filter would force it flat regardless. */
+  opacity:0;pointer-events:auto;text-align:left;will-change:transform,opacity,filter;
+  transform:
+    translateX(calc(var(--wall-x) * (1 - var(--fly) * 0.62)))
+    translateY(calc(var(--vy,0px) * (1 - var(--fly)) + var(--fly) * 26px))
+    translateZ(calc(var(--fly) * 560px))
+    rotateY(calc(var(--wall-rot) * (1 - var(--fly))))
+    rotateX(calc(9deg * (1 - var(--fly))));
+}
+/* Pushed past the corridor's own ±360px wall so the deck frames the scene
+   instead of sitting on top of it. `--wall-x` is NOT derived from
+   `720 − half-width`: a `rotateY`-tilted card's rendered bounding box
+   projects wider than its authored CSS width under `perspective` (measured,
+   not assumed — see the bug encyclopedia), and that overprojection scales
+   with the box's own size, so it has to be re-measured per size rather than
+   computed by formula or carried over from the previous card size. */
+.hdc--left { --wall-x:-460px; --wall-rot:26deg }
+.hdc--right{ --wall-x:460px;  --wall-rot:-26deg }
+.hdc-face{
+  position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column;padding:19px 21px;
+  background:linear-gradient(150deg,var(--accent-900) 0%,var(--void-1) 60%);
+  border:1px solid var(--glass-border);
+  box-shadow:0 26px 54px -20px rgba(0,0,0,.85),0 0 30px var(--accent-dim);
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 19px),calc(100% - 19px) 100%,0 100%);
+  /* `overflow:hidden` alone does not clip here: .hdc is a 3D-transformed
+     ancestor (rotateY/translateZ, driven by --fly) inside a preserve-3d
+     stack, and Chromium's compositor skips the clip for a plain overflow box
+     under those conditions — the MCP card's tall UNREAL ENGINE wordmark
+     painted straight through the border. `contain:paint` forces this element
+     into its own clipping boundary regardless of ancestor transforms. */
+  contain:paint;
+}
+.hdc:hover .hdc-face,.hdc:focus-visible .hdc-face{
+  border-color:var(--accent);box-shadow:0 34px 66px -20px rgba(0,0,0,.85),0 0 34px var(--accent-soft);
+}
+.hdc-thumb{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;z-index:1}
+.hdc-thumb.loaded{opacity:.55}
+/* Logo cards (MCP, PROVIDERS): marks centred in the space above the name, not
+   a full-bleed photo — a vector logo isn't a background image, and `ue.png`'s
+   own "UNREAL ENGINE" wordmark is redundant with this card's own "MCP" title,
+   which is why the card uses `ue-mark.png` (the roundel alone, pre-cropped —
+   cropping the source once beats fighting object-fit for headroom the card
+   doesn't have). `flex-wrap` lets Providers' six marks (three per row) fit
+   without shrinking below a legible size. */
+.hdc-icons{position:relative;z-index:2;flex:1 1 auto;display:flex;flex-wrap:wrap;
+  align-items:center;justify-content:center;gap:14px 21px;padding-top:4px}
+.hdc-icon{max-height:60px;max-width:70px;width:auto;height:auto;object-fit:contain;
+  opacity:0;filter:drop-shadow(0 8px 20px rgba(0,0,0,.6))}
+.hdc-icon.loaded{opacity:1}
+/* chatgpt.png is solid black line art on a transparent ground — invisible
+   against this card's near-black gradient without inverting it to white. */
+.hdc-icon--invert{filter:invert(1) drop-shadow(0 8px 20px rgba(0,0,0,.6))}
+/* MCP is a single-icon card with room to spare — 1.5× the base icon cap. */
+.hdc-icon--big{max-height:90px;max-width:105px}
+/* Small clearance for the face's own notch (`clip-path`, a 19px diagonal cut
+   at the bottom-right) — a bottom-aligned full-width title's last glyph can
+   otherwise land in the cut corner rather than the padding edge. */
+.hdc-id{position:relative;z-index:3;margin-top:auto;padding-right:11px}
+/* Every title here is now a single short word (Games/MCP/Models/Providers) —
+   deliberately NOT `word-break:break-word` like `.emc-name`: that rule exists
+   there for genuinely long multi-word model names, and applied to a single
+   word it has nothing to break AT except mid-word, which is how "Providers"
+   split into an orphan "S" on its own line. Plain wrapping only breaks at
+   whitespace, and every title here measures under the card's width. */
+.hdc-name{margin:0;font-family:var(--font-display);font-weight:400;font-size:18px;
+  line-height:1.1;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
+
+.subtitle{
+  position:absolute;top:633px;left:518px;width:405px;margin:0;
+  font-family:var(--font-prose);font-weight:500;font-size:17px;line-height:1.25;
+  color:var(--text);text-align:center;
+}
+.subtitle span{display:inline-block;white-space:pre;opacity:0;will-change:transform,opacity,filter}
+
+.startbar{position:absolute;top:703px;left:409px;width:623px;opacity:0;z-index:5}
+.startbar .pill{padding:2px 2px 2px 32px;gap:20px;width:100%}
+.sb-field{
+  flex:1 1 auto;min-width:0;background:transparent;border:none;outline:none;
+  font-family:var(--font-prose);font-weight:500;font-size:16px;color:var(--text);
+}
+.sb-field::placeholder{color:rgba(255,255,255,.5)}
+.sb-submit{
+  display:flex;align-items:center;gap:12px;padding:2px 28px 2px 2px;flex:0 0 auto;
+  background-image:var(--gradient-cta);
+}
+.sb-disc{
+  width:39px;height:39px;border-radius:9999px;background:var(--foreground);
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+}
+.sb-disc svg{width:23px;height:23px}
+.sb-label{
+  font-family:var(--font-display-2);font-weight:700;font-size:13px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--text);white-space:nowrap;
+}
+
+/* ─── Games ──────────────────────────────────────────────────────────────── */
+.comp-services .masthead{top:170px}
+/* A rail, not a row — width is set in JS from the clip count and it travels on
+   the slide's local scroll progress, same as the Models stations. */
+.game-row{
+  position:absolute;top:300px;left:0;height:259px;
+  display:flex;gap:28px;align-items:flex-start;padding-inline:50px;
+  will-change:transform;
+}
+.game-tile{
+  position:relative;width:460px;height:259px;flex:0 0 auto;overflow:hidden;opacity:0;
+  border:1px solid var(--glass-border);
+  background:linear-gradient(150deg,var(--accent-900) 0%,var(--void-1) 60%);
+  box-shadow:0 24px 50px -18px rgba(0,0,0,.85),0 0 30px var(--accent-dim);
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%);
+}
+.game-tile video{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
+}
+
+/* ─── Models rail ────────────────────────────────────────────────────────── */
+/* Everything that is not the model list sits lower in this composition. */
+.comp-timeline .masthead{top:196px}
+
+.track{position:absolute;top:0;left:0;height:800px;will-change:transform}
+.baseline{position:absolute;top:754px;left:50px;height:1px;background:var(--rail);transform-origin:left center;transform:scaleX(0)}
+.tick{position:absolute;top:372px;width:1px;height:382px;transform-origin:bottom center;background:var(--gradient-tick);transform:scaleY(0)}
+.marker{position:absolute;top:735px;width:19px;height:19px;transform:scale(.4);opacity:0}
+.station{position:absolute;top:372px;width:470px;display:flex;flex-direction:column}
+/* A FLAT preview plate — not the corridor's 3D flip card. No perspective, no
+   backface, no flip: just the model's live thumbnail behind the notch + scrim. */
+.station-shot{
+  position:relative;width:405px;height:200px;overflow:hidden;opacity:0;
+  border:1px solid var(--glass-border);
+  background:linear-gradient(150deg,var(--accent-900) 0%,var(--void-1) 60%);
+  box-shadow:0 24px 50px -18px rgba(0,0,0,.85),0 0 30px var(--accent-dim);
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%);
+}
+.station-thumb{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:cover;opacity:0}
+.station-thumb.loaded{opacity:1}
+/* The moving preview sits above its still poster, so the plate is never blank
+   while a multi-megabyte clip decodes — and the poster is then taken out of the
+   stack entirely, or it shows through the clip's transparent frames and strobes. */
+/* Own compositing layer: without it an animated child repaints through the
+   parent's clip-path every frame, which re-rasterises the whole plate. Second
+   candidate for the strobe after the asset weight — cheap, so applied too. */
+.station-motion{z-index:2;transform:translateZ(0);backface-visibility:hidden;will-change:transform}
+.station-shot.has-motion .station-thumb:not(.station-motion){opacity:0}
+.station-head{width:470px;display:flex;flex-direction:column;gap:8px;opacity:0;margin-top:18px}
+.station-index{
+  font-family:var(--font-display-2);font-weight:700;font-size:15px;letter-spacing:.34em;
+  background-image:var(--gradient-card-text);-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;
+}
+.station-title{
+  font-family:var(--font-display);font-weight:400;font-size:30px;line-height:1.05;
+  letter-spacing:.04em;text-transform:uppercase;
+}
+.station-body{
+  font-family:var(--font-prose);font-weight:500;font-size:17px;line-height:1.25;
+  color:var(--text);opacity:0;margin:12px 0 0;width:405px;min-height:66px;
+}
+
+/* ═══ EXPLORE corridor ═══════════════════════════════════════════════════ */
+.et-stage{position:absolute;inset:0;perspective:1150px;perspective-origin:50% 48%;pointer-events:none}
+.et-track{
+  position:absolute;inset:0;transform-style:preserve-3d;
+  transform:translateZ(var(--flyz,0px));will-change:transform;pointer-events:none;
+  --step:320px; --flyz:0px;
+}
+.emc{
+  position:absolute;left:50%;top:48%;width:400px;height:244px;margin:-122px 0 0 -200px;
+  pointer-events:auto;transform-style:preserve-3d;
+  transform:
+    translateX(var(--wall-x))
+    translateY(var(--vy,0px))
+    translateZ(calc(var(--i,0) * -1 * var(--step)))
+    rotateY(var(--wall-rot))
+    rotateX(11deg);
+}
+.emc--left { --wall-x:-360px; --wall-rot:32deg }
+.emc--right{ --wall-x:360px;  --wall-rot:-32deg }
+@media (max-width:1100px){
+  .emc{width:336px;margin-left:-168px}
+  .emc--left{--wall-x:-250px} .emc--right{--wall-x:250px}
+}
+.emc-enter{position:relative;width:100%;height:100%;transform-style:preserve-3d}
+/* The 720ms flip is the canonical Explore motion (island deviation #4). */
+.emc-flip{position:relative;width:100%;height:100%;transform-style:preserve-3d;
+  transition:transform 720ms cubic-bezier(0.22,1,0.36,1)}
+.emc:hover .emc-flip,.emc:focus-within .emc-flip{transform:rotateY(180deg)}
+.emc-face{
+  position:absolute;inset:0;backface-visibility:hidden;overflow:hidden;
+  display:flex;flex-direction:column;padding:18px 20px;
+  background:rgba(10,10,20,.9);border:1px solid var(--glass-border);
+  box-shadow:0 26px 54px -20px rgba(0,0,0,.85);
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%);
+}
+.emc:hover .emc-face{border-color:var(--accent);box-shadow:0 34px 66px -20px rgba(0,0,0,.85),0 0 30px var(--accent-dim)}
+.emc-back{transform:rotateY(180deg);gap:10px}
+.emc-front{pointer-events:auto}
+.emc:hover .emc-front{pointer-events:none}
+.emc-thumb{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;z-index:1}
+.emc-thumb.loaded{opacity:.62}
+.emc-scrim{position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:linear-gradient(180deg,rgba(7,7,15,.15) 0%,rgba(7,7,15,.85) 72%,rgba(7,7,15,.96) 100%)}
+.emc-cat{
+  position:relative;z-index:3;align-self:flex-start;padding:4px 12px;
+  background:var(--accent);color:var(--accent-ink);
+  font-family:var(--font-label);font-size:10px;letter-spacing:.32em;text-transform:uppercase;
+  transform:skewX(var(--skew));box-shadow:0 0 16px var(--accent-soft);
+}
+.emc-cat>span{display:inline-block;transform:skewX(var(--unskew))}
+.emc-front-id{position:relative;z-index:3;margin-top:auto}
+.emc-author{display:block;font-family:var(--font-mono);font-size:11px;color:var(--text);margin-bottom:5px}
+.emc-name{margin:0;font-family:var(--font-display);font-weight:400;font-size:26px;
+  line-height:1.06;letter-spacing:.03em;text-transform:uppercase;word-break:break-word}
+.emc-name--sm{font-size:20px}
+.emc-params{display:inline-block;margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--accent-300)}
+.emc-stars{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;color:var(--accent-300)}
+.emc-tagline{margin:0;font-family:var(--font-prose);font-weight:500;font-size:16px;
+  line-height:1.28;color:rgba(255,255,255,.82)}
+.emc-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+.emc-tag{padding:3px 9px;border:1px solid var(--glass-border);font-family:var(--font-mono);
+  font-size:10px;letter-spacing:.08em;color:var(--text-dim)}
+.emc-open{
+  margin-top:10px;align-self:flex-start;padding:9px 20px;background-image:var(--gradient-cta);
+  font-family:var(--font-display-2);font-weight:700;font-size:11px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--text);transform:skewX(var(--skew))
+}
+.emc-open>span{display:inline-block;transform:skewX(var(--unskew))}
+
+/* ─── Preloader (no brand text — rail + count only) ──────────────────────── */
+.preloader{
+  position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:22px;pointer-events:none;
+}
+.pl-rail{position:relative;width:min(320px,60vw);height:3px;background:var(--void-3);
+  transform:skewX(-20deg);overflow:hidden}
+.pl-fill{position:absolute;inset:0;transform-origin:left center;transform:scaleX(0);
+  background:var(--accent);box-shadow:var(--shadow-loader-rail)}
+.pl-pct{font-family:var(--font-mono);font-size:12px;letter-spacing:.2em;color:var(--text-dim)}
+
+/* ─── Mobile reflow (<855px) ─────────────────────────────────────────────── */
+@media (max-width:855px){
+  /* Nav: the CTA alone, pushed right. The links pill is dropped — five pills
+     do not fit a phone, and every section it points at is reachable by
+     scrolling. The corner icon needs no override here — it's already fixed
+     to the viewport corner independent of the nav row at every breakpoint. */
+  .nav-row{justify-content:flex-end;width:100%}
+  .nav-links{display:none}
+  .nav-cta button{padding:10px 18px;font-size:11px}
+
+  .frame{position:absolute;inset:0;top:0;left:0;width:100%;height:100%;transform:none !important;
+    display:flex;flex-direction:column;align-items:center;overflow:hidden}
+  .frame>*{position:static !important;left:auto !important;top:auto !important;
+    width:100% !important;max-width:420px}
+  .masthead{font-size:clamp(15px,3.2vw,22px);line-height:1.08;text-align:center}
+  /* On a phone the frame is narrower than any nowrap line, so let it wrap. */
+  .mline{white-space:normal}
+
+  .comp-hero .frame{gap:20px;padding:88px 20px 28px;justify-content:center}
+  /* The deck is dropped for the same reason as the nav links pill: three cards
+     plus the subtitle plus the start bar do not fit a phone hero, and every
+     destination they hold is reachable by scrolling or by Enter Studio. */
+  .hero-deck{display:none}
+  .subtitle{font-size:15px}
+  .startbar .pill{flex-direction:column;gap:10px;padding:10px;align-items:stretch}
+  .startbar .pill>*{width:100%}
+  .sb-field{padding:14px 18px;background:rgba(255,255,255,.06)}
+  .sb-submit{justify-content:center;padding:2px 18px 2px 2px}
+
+  .comp-services .frame{gap:18px;padding:96px 24px 32px;justify-content:center}
+  /* On a phone the rail becomes a plain vertical stack — no travel. */
+  .game-row{position:relative !important;left:auto !important;top:auto !important;
+    width:100% !important;height:auto !important;padding-inline:0;
+    flex-direction:column;gap:14px;align-items:stretch;transform:none !important}
+  .game-tile{width:100% !important;height:auto;aspect-ratio:16/9}
+
+  .comp-timeline .frame{padding:92px 24px 20px;justify-content:flex-start;overflow:hidden}
+  .track{position:relative !important;height:auto !important;width:100% !important;
+    display:flex;flex-direction:column;gap:26px;margin-top:24px}
+  .baseline,.tick{display:none}
+  .station{position:relative !important;width:100% !important;gap:10px;
+    padding-left:26px;border-left:1px solid var(--rail)}
+  .marker{position:absolute !important;top:2px !important;left:-7px !important;
+    width:14px !important;height:14px !important}
+  .station-shot{width:100% !important;height:150px}
+  .station-head{width:100% !important;margin-top:12px}
+  .station-body{width:100% !important;min-height:0;font-size:15px;color:rgba(255,255,255,.8)}
+  .station-index{font-size:13px}
+  .station-title{font-size:21px}
+
+  /* The corridor collapses to a plain stack — a CSS-3D tube on a phone is
+     unreadable and expensive. */
+  .et-stage{perspective:none;overflow-y:auto;padding:80px 20px 150px}
+  .et-track{position:relative;inset:auto;transform:none !important;display:flex;
+    flex-direction:column;gap:16px;align-items:center}
+  .emc{position:relative;left:auto;top:auto;margin:0;width:100%;max-width:420px;
+    height:auto;min-height:210px;transform:none !important}
+  .emc-flip{transform:none !important;height:auto}
+  .emc-back{display:none}
+  .emc-front{position:relative;inset:auto;min-height:210px}
+  .comp-explore .frame{justify-content:flex-end;padding:0 20px 28px;pointer-events:none}
+  .comp-explore .startbar{pointer-events:auto}
+}
+
+/* ─── Scene-failure fallback: never a blank page ─────────────────────────── */
+body.no-scene .scene-wrap{display:none}
+body.no-scene .preloader{display:none}
+body.no-scene .comp{opacity:1;position:relative;inset:auto;min-height:100vh;pointer-events:auto}
+body.no-scene .comp *{pointer-events:auto}
+body.no-scene .scroller{display:none}
+body.no-scene .mline span,body.no-scene .subtitle span,
+body.no-scene .station-head,body.no-scene .station-body,body.no-scene .station-shot,
+body.no-scene .game-tile,
+body.no-scene .startbar,body.no-scene .nav .pill,
+body.no-scene .corner-icon{opacity:1 !important;filter:none !important;transform:none !important}
+/* The deck keeps its CSS wall transform — that IS its layout, not an entrance. */
+body.no-scene .hdc{opacity:1 !important;filter:none !important}
+body.no-scene .nav .pill{transform:skewX(var(--skew)) !important}
+body.no-scene .marker{opacity:1 !important;transform:none !important}
+body.no-scene .track{transform:none !important}
+body.no-scene .u-grad{filter:drop-shadow(0 0 16px var(--accent-soft)) !important}
+</style>
+
+<script type="importmap">
+{"imports":{
+  "three":"https://unpkg.com/three@0.162.0/build/three.module.js",
+  "three/addons/":"https://unpkg.com/three@0.162.0/examples/jsm/"
+}}
+</script>
+</head>
+
+<body>
+
+<div class="scene-wrap" id="sceneWrap">
+  <canvas id="scene"></canvas>
+  <div class="scene-overlay"></div>
+</div>
+
+<!-- ── Corner icon ───────────────────────────────────────────────────────── -->
+<!-- A body-level sibling of .nav, not a child of it — see the .corner-icon
+     CSS comment for why a fixed-position descendant of .nav's transformed
+     box would not actually track the viewport corner. -->
+<div class="corner-icon">
+  <button type="button" class="corner-icon-btn" data-goto="hero" aria-label="Arcanion — back to top">
+    <img src="/images/-%20arcanion%20girl.png" alt="" />
+  </button>
+</div>
+
+<!-- ── Nav ───────────────────────────────────────────────────────────────── -->
+<header class="nav" id="nav">
+  <div class="nav-row">
+    <div class="pill nav-links" data-nav="0">
+      <ul>
+        <li><button type="button" data-goto="hero">Home</button></li>
+        <li><button type="button" data-goto="sitemap">Games</button></li>
+        <li><button type="button" data-goto="timeline">Models</button></li>
+        <li><button type="button" data-goto="impact">Explore</button></li>
+        <li><button type="button" id="navPricing">Pricing</button></li>
+      </ul>
+    </div>
+
+    <div class="pill nav-cta" data-nav="1">
+      <button type="button" id="navEnter">Enter Studio<span class="dot"></span></button>
+    </div>
+  </div>
+</header>
+
+<!-- ── 1. Hero ───────────────────────────────────────────────────────────── -->
+<section class="comp comp-hero" id="compHero" aria-label="Arcanion">
+  <div class="frame" data-fit="contain">
+    <!-- First child on purpose: `.comp.is-live *` forces pointer-events:auto on
+         every descendant, so this full-inset stage must sit BENEATH the subtitle
+         and start bar in paint order or it would swallow their clicks. -->
+    <div class="hero-deck">
+      <div class="hero-deck-in" id="heroDeck"><!-- cards injected from HERO_DECK --></div>
+    </div>
+
+    <p class="subtitle" data-reveal="words" data-delay="240">Characters, worlds, and engine — one system that builds what you imagine, without ever learning an engine.</p>
+
+    <div class="startbar" data-reveal="block" data-delay="440">
+      <form class="pill" data-start-form>
+        <div class="brackets"></div>
+        <input class="sb-field" type="text" placeholder="Describe what you want to build…" aria-label="Describe what you want to build" />
+        <button class="sb-submit" type="submit">
+          <span class="sb-disc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="#07070f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
+          <span class="sb-label">Start Building</span>
+        </button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ── 2. Games ──────────────────────────────────────────────────────────────
+     The slide anchor keeps the id `sitemap`: it is the scene controller's key
+     for this slide (scrollState.tops.sitemap drives the plasma-burst morph), and
+     renaming it would mean renaming that whole axis. Only the label is "Games". -->
+<section class="comp comp-services" id="compServices" aria-label="Games">
+  <div class="frame" data-fit="width">
+    <h2 class="masthead" data-reveal="letters" data-delay="120">
+      <span class="mline" data-hot="left">Explore games</span>
+    </h2>
+    <div class="game-row" id="gameRow"><!-- tiles injected from GAME_CLIPS --></div>
+  </div>
+</section>
+
+<!-- ── 3. Models ─────────────────────────────────────────────────────────── -->
+<section class="comp comp-timeline" id="compTimeline" aria-label="Best models">
+  <div class="frame" data-fit="width">
+    <div class="track" id="track">
+      <div class="baseline" id="baseline"></div>
+      <!-- stations injected by JS from TOP_MODELS -->
+    </div>
+    <h2 class="masthead" data-reveal="letters" data-delay="120">
+      <span class="mline" data-hot="left">Best models,</span>
+      <span class="mline" data-hot="right">all-in-one</span>
+    </h2>
+  </div>
+</section>
+
+<!-- ── 4. Explore — the tunnel corridor ──────────────────────────────────── -->
+<section class="comp comp-explore" id="compExplore" aria-label="Explore the model catalogue">
+  <div class="et-stage" id="etStage">
+    <div class="et-track" id="etTrack"><!-- cards injected from TOP_MODELS --></div>
+  </div>
+  <div class="frame" data-fit="contain">
+    <div class="startbar" data-reveal="block" data-delay="360">
+      <form class="pill" data-start-form>
+        <div class="brackets"></div>
+        <input class="sb-field" type="text" placeholder="Describe what you want to build…" aria-label="Describe what you want to build" />
+        <button class="sb-submit" type="submit">
+          <span class="sb-disc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="#07070f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
+          <span class="sb-label">Start Building</span>
+        </button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ── Scroll anchors ────────────────────────────────────────────────────── -->
+<main class="scroller">
+  <div class="slide" id="hero"></div>
+  <div class="slide" id="sitemap"></div>
+  <div class="slide" id="timeline"></div>
+  <div class="slide" id="impact"></div>
+</main>
+
+<!-- ── Preloader ─────────────────────────────────────────────────────────── -->
+<div class="preloader" id="preloader">
+  <div class="pl-rail"><div class="pl-fill" id="plFill"></div></div>
+  <div class="pl-pct" id="plPct">000</div>
+</div>
+
+<script src="https://unpkg.com/lenis@1.3.19/dist/lenis.min.js"></script>
+
+<script type="module">
+/* ════════════════════════════════════════════════════════════════════════════
+   ARCANION LANDING — one continuous WebGL scene, four fixed compositions.
+   ════════════════════════════════════════════════════════════════════════════ */
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
+import { UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+const TAU = Math.PI * 2;
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const smoothstep = (e0, e1, x) => { const t = clamp01((x - e0) / (e1 - e0 || 1e-6)); return t * t * (3 - 2 * t); };
+const gauss = () => Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(TAU * Math.random());
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ── Palette (mirrors the CSS ramp exactly) ──────────────────────────────── */
+const PAL = {
+  accent900:0x1a0416, accent800:0x3c0633, accent700:0x6b0a5c, accent600:0xb80d9c,
+  accent500:0xff00cc, accent400:0xff5cdd, accent300:0xff9fea, accent200:0xffd9f7,
+  signalGlow:0x8800ff,   // the single scarce hot accent (electric violet)
+  signalRing:0xa78bfa,   // star burn — 6%, island deviation #3
+  foreground:0xffffff,
+};
+const C = hex => new THREE.Color(hex);
+
+/* ── Device tiers & counts ───────────────────────────────────────────────── */
+function deviceTier() {
+  if (innerWidth < 768 || matchMedia('(pointer: coarse)').matches) return 'mobile';
+  if (innerWidth < 1180) return 'tablet';
+  return 'desktop';
+}
+const TIER = deviceTier();
+const COUNTS = {
+  desktop:{ arms:520, perArm:230, stars:3600, dust:650 },
+  tablet: { arms:340, perArm:170, stars:2200, dust:400 },
+  mobile: { arms:150, perArm:80,  stars:700,  dust:120 },
+}[TIER];
+const viewScale = Math.min(1, Math.max(0.5, innerHeight / 1080));
+
+/* ── Scroll state (plain mutable object — read every frame by the scene) ──── */
+const scrollState = {
+  y: 0, vh: innerHeight, active: 'none',
+  tops: { hero:0, sitemap:0, roadmap:0, impact:0 },
+  local:{ hero:0, sitemap:0, roadmap:0, impact:0 },
+  span: { hero:0, sitemap:0, roadmap:0, impact:0 },
+};
+const SLIDES = { hero:'hero', sitemap:'sitemap', roadmap:'timeline', impact:'impact' };
+const slideEls = {}; for (const k in SLIDES) slideEls[k] = document.getElementById(SLIDES[k]);
+
+function measureSlides() {
+  const sy = window.scrollY || 0;
+  for (const k in slideEls) {
+    const r = slideEls[k].getBoundingClientRect();
+    scrollState.tops[k] = r.top + sy;
+    slideEls[k]._h = r.height;
+  }
+}
+function updateScrollState() {
+  const y = window.scrollY || 0, vh = innerHeight;
+  scrollState.y = y; scrollState.vh = vh;
+  const probe = y + vh * 0.5;
+  let active = 'hero';
+  for (const k in slideEls) {
+    const top = scrollState.tops[k], h = slideEls[k]._h || vh;
+    if (probe >= top && probe < top + h) active = k;
+    const range = Math.max(1, h - vh);
+    scrollState.local[k] = clamp01((y - top) / range);
+    scrollState.span[k] = h - vh;      // the slide's own travel window
+  }
+  scrollState.active = active;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   SHADERS
+   ════════════════════════════════════════════════════════════════════════════ */
+const STAR_VERT = `
+attribute float aSize; attribute float aSeed; attribute float aPink;
+uniform float iTime; uniform float uAlpha; uniform float uSize; uniform float uBright; uniform float uViewScale;
+uniform vec3 uCool; uniform vec3 uPink;
+varying vec3 vCol; varying float vB;
+#define TAU 6.2831853
+void main() {
+  float tw = 0.6 + 0.4 * sin(iTime * 1.4 + aSeed * TAU);
+  vCol = mix(uCool, uPink, aPink);
+  vB = aSize * tw * uBright * uAlpha;
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  gl_PointSize = clamp(aSize * uSize * uViewScale * (300.0 / -mv.z), 0.5, 10.0);
+  gl_Position = projectionMatrix * mv;
+}`;
+const STAR_FRAG = `
+varying vec3 vCol; varying float vB;
+void main() {
+  float d = length(gl_PointCoord - 0.5);
+  if (d > 0.5) discard;
+  gl_FragColor = vec4(vCol, vB * smoothstep(0.5, 0.08, d));
+}`;
+const DUST_VERT = `
+attribute float aSeed;
+uniform float iTime; uniform float uAlpha; uniform float uViewScale;
+varying float vB;
+#define TAU 6.2831853
+void main() {
+  vec3 p = position;
+  p.x += sin(iTime * 0.2 + aSeed * TAU) * 1.4;
+  p.y += cos(iTime * 0.17 + aSeed * TAU) * 1.1;
+  vB = (0.10 + 0.10 * sin(iTime * 0.8 + aSeed * 12.0)) * uAlpha;
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  gl_PointSize = clamp((1.0 + aSeed * 2.0) * uViewScale * (200.0 / -mv.z), 0.8, 44.0);
+  gl_Position = projectionMatrix * mv;
+}`;
+const DUST_FRAG = `
+uniform vec3 uColor; varying float vB;
+void main() {
+  float d = length(gl_PointCoord - 0.5);
+  if (d > 0.5) discard;
+  gl_FragColor = vec4(uColor, vB * smoothstep(0.5, 0.0, d));
+}`;
+
+const MORPH_VERT = `
+attribute vec4 aUni;
+attribute vec4 aBurst;
+attribute vec2 aSeed;
+
+uniform float iTime; uniform float uAlpha; uniform vec2 uRes;
+uniform float uT1; uniform float uT2;
+uniform float uNeedUni; uniform float uNeedBurst; uniform float uNeedMael;
+uniform vec3 uPointer; uniform vec3 uPointerAxis;
+uniform float uPointerR; uniform float uPointerPush;
+uniform float uPointerSwirl; uniform float uPointerGlow;
+uniform float uStagger; uniform float uMidBoost;
+uniform float uArc1; uniform float uSwirl1; uniform float uArc2; uniform float uSwirl2;
+
+uniform float uUniTime; uniform mat3 uUniRot; uniform float uUniScale;
+uniform float uUniEllipse; uniform float uUniLife; uniform float uUniSpawnSpread;
+uniform float uUniOmega; uniform float uUniV0; uniform float uUniDecay;
+uniform float uUniSize; uniform float uUniBright;
+
+uniform float uBurstScale; uniform float uBurstSway; uniform float uBurstSwaySpeed;
+uniform float uBurstShimmer; uniform float uBurstShimmerSpeed;
+uniform float uBurstTipFade; uniform float uBurstSize; uniform float uBurstBright;
+
+uniform mat3 uMaelRot; uniform float uRInner; uniform float uROuter;
+uniform float uSpin; uniform float uMaelTwinkle;
+uniform float uCrescent; uniform float uCrescentAngle;
+uniform float uMaelSize; uniform float uMaelBright; uniform float uMaelPhase;
+
+uniform vec3 uUniDeep; uniform vec3 uUniMid; uniform vec3 uUniBrightC;
+uniform vec3 uBurstCore; uniform vec3 uBurstInner;
+uniform vec3 uBurstMid; uniform vec3 uBurstOuter;
+uniform vec3 uArm; uniform vec3 uArmHot; uniform vec3 uMaelCore; uniform vec3 uPink;
+
+varying vec3 vCol; varying float vB;
+#define TAU 6.2831853
+
+vec2 rot2(vec2 v, float a) {
+  float c = cos(a), s = sin(a);
+  return vec2(v.x * c - v.y * s, v.x * s + v.y * c);
+}
+
+float stagger(float t, float seed) {
+  float s = clamp(t * (1.0 + uStagger) - seed * uStagger, 0.0, 1.0);
+  return s * s * (3.0 - 2.0 * s);
+}
+
+void main() {
+  float seed = aSeed.x;
+
+  vec3 pUni = vec3(0.0);
+  vec3 cUni = uUniDeep;
+  float bUni = 0.0;
+  float sUni = 1.0;
+
+  if (uNeedUni > 0.5) {
+    float born = uUniTime / uUniLife - aUni.z * uUniSpawnSpread;
+    float alive = step(0.0, born);
+    float life = fract(max(born, 0.0));
+    float age = life * uUniLife;
+
+    float ang = uUniOmega * (uUniTime - age);
+    float radius = aUni.x + uUniV0 * age - uUniDecay * age * age;
+
+    pUni = vec3(cos(ang) * radius * uUniEllipse, aUni.y, sin(ang) * radius);
+    pUni.xz *= mix(1.0, -1.0, aUni.w);
+    pUni = uUniRot * pUni * uUniScale;
+
+    bUni = alive * smoothstep(0.0, 0.14, life)
+         * (1.0 - smoothstep(0.18, 1.0, life)) * uUniBright;
+
+    cUni = uUniDeep;
+    cUni = mix(cUni, uUniMid, step(0.34, seed));
+    cUni = mix(cUni, uUniBrightC, step(0.67, seed));
+    cUni = mix(cUni, uPink, step(0.94, seed));
+
+    sUni = 0.35 + 0.65 * fract(seed * 17.0);
+  }
+
+  vec3 pBurst = vec3(0.0);
+  vec3 cBurst = uBurstMid;
+  float bBurst = 0.0;
+  float sBurst = 1.0;
+
+  if (uNeedBurst > 0.5) {
+    vec3 f = aBurst.xyz;
+    float along = aBurst.w;
+
+    vec3 d = normalize(f + 1e-5);
+    vec3 ax = normalize(cross(d, abs(d.y) > 0.99 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0)));
+    vec3 ay = cross(d, ax);
+
+    float amp = uBurstSway * along;
+    float ph = seed * TAU;
+    float ts = iTime * uBurstSwaySpeed;
+    float w1 = sin(ts + ph + along * 5.0);
+    float w2 = cos(ts * 1.27 + ph * 1.7 + along * 9.0);
+    float w3 = 0.5 * sin(ts * 0.6 + ph);
+
+    f += ax * (w1 + w3) * amp;
+    f += ay * w2 * amp * 0.8;
+
+    pBurst = f * uBurstScale;
+
+    float sh = max(0.0, 0.6 + uBurstShimmer * 0.55
+      * sin(along * 16.0 - iTime * uBurstShimmerSpeed + seed * 28.0));
+
+    float fade = mix(1.15, uBurstTipFade, smoothstep(0.0, 1.0, along));
+
+    float fn = clamp((aSeed.y - 0.55) / 0.45, 0.0, 1.0);
+    float fil = 0.035 + 2.4 * pow(fn, 2.6);
+    bBurst = sh * fade * fil * uBurstBright;
+
+    cBurst = mix(uBurstInner, uBurstMid, smoothstep(0.0, 0.5, along));
+    cBurst = mix(cBurst, uBurstOuter, smoothstep(0.5, 1.0, along));
+    cBurst = mix(cBurst, uBurstCore, (1.0 - smoothstep(0.0, 0.12, along)) * 0.9);
+    cBurst = mix(cBurst, uPink, step(0.94, seed) * smoothstep(0.45, 1.0, along));
+
+    sBurst = 0.8 + 0.45 * (1.0 - along);
+  }
+
+  vec3 pMael = vec3(0.0);
+  vec3 cMael = uArm;
+  float bMael = 0.0;
+  float sMael = 1.0;
+
+  if (uNeedMael > 0.5) {
+    vec3 m = position;
+    m.xy = rot2(m.xy, iTime * uSpin);
+
+    float radius = length(position.xy);
+    float core = clamp((uROuter - radius) / (uROuter - uRInner), 0.0, 1.0);
+
+    float a2 = atan(m.y, m.x) - uCrescentAngle;
+    float d = abs(atan(sin(a2), cos(a2)));
+    float crescent = smoothstep(1.5 + uMaelPhase * 0.9, 0.0, d)
+                   * core * core * uCrescent * (1.0 + 0.5 * uMaelPhase);
+
+    pMael = uMaelRot * m;
+
+    float tw = 1.0 - uMaelTwinkle * (0.5 + 0.5 * sin(iTime * 3.0 + seed * TAU));
+    float bright = aSeed.y * (0.3 + 0.7 * core);
+
+    cMael = mix(mix(uArm, uArmHot, uMaelPhase), uMaelCore, core * core);
+    cMael = mix(cMael, uPink, clamp(crescent, 0.0, 1.0));
+
+    bMael = (bright * tw * (0.7 + core) + crescent * 1.5)
+          * uMaelBright * (1.0 + 0.18 * uMaelPhase);
+    sMael = 1.0 + core * 1.1 + crescent * 1.6;
+  }
+
+  float t1 = stagger(uT1, seed);
+  float t2 = stagger(uT2, fract(seed * 3.7 + 0.31));
+
+  vec3 dir = normalize(vec3(
+    sin(seed * 91.3 + 0.7),
+    cos(seed * 57.1 + 2.1),
+    sin(seed * 33.7 + 4.3)
+  ) + 1e-4);
+
+  vec3 p = mix(pUni, pBurst, t1);
+  float mid1 = 4.0 * t1 * (1.0 - t1);
+  p += dir * (uArc1 * mid1);
+  p.xz = rot2(p.xz, mid1 * uSwirl1 * (0.6 + 0.8 * seed));
+
+  p = mix(p, pMael, t2);
+  float mid2 = 4.0 * t2 * (1.0 - t2);
+  p += dir * (uArc2 * mid2);
+  p.xz = rot2(p.xz, mid2 * uSwirl2 * (0.6 + 0.8 * seed));
+
+  vec3 pd = p - uPointer;
+  float pl = length(pd);
+  float infl = exp(-(pl * pl) / max(0.001, uPointerR * uPointerR));
+  vec3 pdir = normalize(pd + 1e-4);
+  p += pdir * (infl * uPointerPush);
+  p += normalize(cross(uPointerAxis, pdir) + 1e-4) * (infl * uPointerSwirl);
+
+  vCol = mix(mix(cUni, cBurst, t1), cMael, t2);
+  vB = mix(mix(bUni, bBurst, t1), bMael, t2)
+     * uAlpha * (1.0 + uMidBoost * (mid1 + mid2))
+     * (1.0 + infl * uPointerGlow);
+
+  if (vB < 0.004) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    gl_PointSize = 0.0;
+    return;
+  }
+
+  float size = mix(
+    mix(uUniSize * sUni, uBurstSize * sBurst, t1),
+    uMaelSize * sMael,
+    t2
+  );
+
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  gl_PointSize = clamp(size * uRes.y / 1000.0 / -mv.z, 1.0, 15.0);
+  gl_Position = projectionMatrix * mv;
+}`;
+
+const MORPH_FRAG = `
+uniform float uCoreStrength; uniform float uCoreSize; uniform float uCoreSharp;
+uniform float uHaloAmount; uniform float uHaloWidth; uniform float uHaloFalloff;
+varying vec3 vCol; varying float vB;
+
+void main() {
+  float pd = length(2.0 * gl_PointCoord - 1.0);
+  if (pd > 1.0) discard;
+  float core = pow(max(0.0, 1.0 - pd / max(0.001, uCoreSize)), uCoreSharp) * uCoreStrength;
+  float halo = pow(max(0.0, 1.0 - pd / max(0.001, uHaloWidth)), uHaloFalloff) * uHaloAmount;
+  float mask = (core + halo) * vB;
+  if (mask <= 0.006) discard;
+  gl_FragColor = vec4(vCol, mask);
+}`;
+
+const FINAL_VERT = `
+varying vec2 vUv;
+void main() { vUv = uv; gl_Position = vec4(position, 1.0); }`;
+const FINAL_FRAG = `
+uniform float iTime; uniform sampler2D tDiffuse;
+uniform vec3 iCornerLow; uniform vec3 iCornerHigh;
+uniform float uSpread; uniform float uIntensity;
+varying vec2 vUv;
+vec3 warp3d(vec3 pos, float t) {
+  float curv = .8, a = 1.9, b = 0.7;
+  pos *= 2.;
+  pos.x += curv * sin(t + a * pos.y) + t * b;
+  pos.y += curv * cos(t + a * pos.x);
+  pos.y += curv * sin(t + a * pos.z) + t * b;
+  pos.z += curv * cos(t + a * pos.y);
+  pos.z += curv * sin(t + a * pos.x) + t * b;
+  pos.x += curv * cos(t + a * pos.z);
+  return 0.5 + 0.5 * cos(pos.xyz + vec3(1, 2, 4));
+}
+void main() {
+  vec2 uv = 2. * vUv - 1.;
+  vec3 scene = texture2D(tDiffuse, vUv).xyz;
+  float mask = smoothstep(uSpread, 1., abs(uv.y))
+             * smoothstep(-.75, 1., -uv.y * uv.x);
+  if (mask <= 0.0015) { gl_FragColor = vec4(scene, 1.); return; }
+  vec3 w = pow(warp3d(vec3(uv.x, sin(uv.y), uv.y), iTime * 1.5), vec3(1.5));
+  vec3 col = uIntensity * iCornerLow * w.x;
+  col *= w.y;
+  col += iCornerHigh * w.z * 1.35;
+  col *= mask;
+  gl_FragColor = vec4(col + scene, 1.);
+}`;
+
+const WARP_VERT = `
+attribute float aSeed; attribute float aSpeed; attribute float aRadius;
+attribute float aAngle; attribute float aEnd; attribute float aSide;
+uniform float iTime; uniform float uBoost; uniform float uSurge;
+uniform float uSpread; uniform float uWidth; uniform vec2 uResolution;
+varying float vEnd; varying float vB; varying float vSeed; varying float vSide;
+
+void main() {
+  float rate = 0.13 + 0.30 * uBoost + 0.55 * uSurge;
+  float life = fract(iTime * aSpeed * rate + aSeed);
+  float e = life * life;
+  float z = -mix(60.0, 1.2, e);
+  float len = (1.5 + 11.0 * e) * (0.3 + 0.9 * uBoost) * (1.0 + 3.5 * uSurge);
+  float a = aAngle + iTime * 0.06;
+  float r = aRadius * uSpread;
+  vec2 xy = vec2(cos(a) * r, sin(a) * r);
+  vec4 headClip = projectionMatrix * modelViewMatrix * vec4(xy, z, 1.0);
+  vec4 tailClip = projectionMatrix * modelViewMatrix * vec4(xy, z - len, 1.0);
+  vec4 clip = mix(tailClip, headClip, aEnd);
+  vec2 headNDC = headClip.xy / headClip.w;
+  vec2 tailNDC = tailClip.xy / tailClip.w;
+  vec2 d = (headNDC - tailNDC) * uResolution;
+  vec2 dir = length(d) > 1e-4 ? normalize(d) : vec2(0.0, 1.0);
+  vec2 normal = vec2(-dir.y, dir.x);
+  vec2 offset = normal * (aSide * uWidth * 0.5) / uResolution * 2.0;
+  clip.xy += offset * clip.w;
+  vEnd = aEnd;
+  vSeed = aSeed;
+  vSide = aSide;
+  vB = smoothstep(0.0, 0.18, life) * (0.2 + 0.8 * e);
+  gl_Position = clip;
+}`;
+const WARP_FRAG = `
+uniform float uOpacity; uniform vec3 uHead; uniform vec3 uTail; uniform vec3 uPink;
+varying float vEnd; varying float vB; varying float vSeed; varying float vSide;
+void main() {
+  vec3 col = mix(uTail, uHead, vEnd);
+  col = mix(col, uPink, step(0.94, vSeed) * pow(vEnd, 2.0));
+  float across = 1.0 - abs(vSide);
+  across *= across;
+  float alpha = pow(vEnd, 1.5) * vB * across * uOpacity;
+  if (alpha <= 0.002) discard;
+  gl_FragColor = vec4(col, alpha);
+}`;
+
+/* ════════════════════════════════════════════════════════════════════════════
+   RENDERER · SCENE · CAMERA · COMPOSER
+   ════════════════════════════════════════════════════════════════════════════ */
+const canvas = document.getElementById('scene');
+const isTouch = TIER === 'mobile';
+const renderer = new THREE.WebGLRenderer({
+  canvas, antialias: !isTouch, powerPreference: 'high-performance', alpha: false,
+});
+function pixelRatio() {
+  const dpr = window.devicePixelRatio || 1;
+  return isTouch ? Math.min(dpr, 0.85) : Math.min(1.5, Math.max(0.75, dpr));
+}
+renderer.setPixelRatio(pixelRatio());
+renderer.setSize(innerWidth, innerHeight, false);
+renderer.setClearColor(0x07070f, 1);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 600);
+camera.position.set(0, 0, 15);
+scene.add(camera);
+
+const composer = new EffectComposer(renderer);
+composer.setPixelRatio(pixelRatio());
+composer.setSize(innerWidth, innerHeight);
+composer.addPass(new RenderPass(scene, camera));
+
+// Constructed for composite parity but inert (island deviation #3).
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0, 0.4, 0.85);
+bloom.enabled = false;
+composer.addPass(bloom);
+
+const finalPass = new ShaderPass({
+  uniforms: {
+    tDiffuse:    { value: null },
+    iTime:       { value: 0 },
+    iCornerLow:  { value: C(PAL.accent900) },
+    iCornerHigh: { value: C(PAL.accent700) },
+    uSpread:     { value: 0.28 },
+    uIntensity:  { value: 2.6 },
+  },
+  vertexShader: FINAL_VERT,
+  fragmentShader: FINAL_FRAG,
+});
+composer.addPass(finalPass);
+
+/* ════════════════════════════════════════════════════════════════════════════
+   STARFIELD & DUST — the fixed backdrop the flight parallaxes against
+   ════════════════════════════════════════════════════════════════════════════ */
+function buildStars(count) {
+  const pos = new Float32Array(count * 3), size = new Float32Array(count);
+  const seed = new Float32Array(count), pink = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    const r = 70 + Math.random() * 160;
+    const z = Math.random() * 2 - 1, th = Math.random() * TAU, rr = Math.sqrt(1 - z * z);
+    pos[i * 3]     = rr * Math.cos(th) * r;
+    pos[i * 3 + 1] = rr * Math.sin(th) * r;
+    pos[i * 3 + 2] = z * r - 40;
+    size[i] = 0.14 + Math.pow(Math.random(), 8) * 0.85;
+    seed[i] = Math.random();
+    pink[i] = Math.random() < 0.06 ? 1 : 0;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('aSize',    new THREE.BufferAttribute(size, 1));
+  g.setAttribute('aSeed',    new THREE.BufferAttribute(seed, 1));
+  g.setAttribute('aPink',    new THREE.BufferAttribute(pink, 1));
+  return g;
+}
+const starMat = new THREE.ShaderMaterial({
+  uniforms: {
+    iTime:{value:0}, uAlpha:{value:0}, uSize:{value:1.5}, uBright:{value:2},
+    uViewScale:{value:viewScale}, uCool:{value:C(PAL.accent200)}, uPink:{value:C(PAL.signalRing)},
+  },
+  vertexShader: STAR_VERT, fragmentShader: STAR_FRAG,
+  blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, transparent: true,
+});
+const stars = new THREE.Points(buildStars(COUNTS.stars), starMat);
+stars.frustumCulled = false; scene.add(stars);
+
+function buildDust(count) {
+  const pos = new Float32Array(count * 3), seed = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    pos[i * 3]     = (Math.random() - 0.5) * 90;
+    pos[i * 3 + 1] = (Math.random() - 0.5) * 60;
+    pos[i * 3 + 2] = (Math.random() - 0.5) * 50 + 10;
+    seed[i] = Math.random();
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('aSeed',    new THREE.BufferAttribute(seed, 1));
+  return g;
+}
+const dustMat = new THREE.ShaderMaterial({
+  uniforms:{ iTime:{value:0}, uAlpha:{value:0}, uViewScale:{value:viewScale}, uColor:{value:C(PAL.accent500)} },
+  vertexShader: DUST_VERT, fragmentShader: DUST_FRAG,
+  blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, transparent: true,
+});
+const dust = new THREE.Points(buildDust(COUNTS.dust), dustMat);
+dust.frustumCulled = false; scene.add(dust);
+
+/* ════════════════════════════════════════════════════════════════════════════
+   THE MORPH CLOUD — one point system that IS all three forms
+   ════════════════════════════════════════════════════════════════════════════ */
+const CFG = {
+  maelRInner: 6.4, maelROuter: 48, maelTightness: 2.3, maelThickness: 0.9,
+  maelBulge: 1, maelFunnel: 1.05,
+  burstSpread: 3, burstCurl: 0.5, burstBend: 0.4, burstCoreStart: 0.06,
+  density: 0.7,
+};
+function buildMorph() {
+  const arms = COUNTS.arms;
+  const perArm = Math.max(2, Math.round(COUNTS.perArm * CFG.density));
+  const n = arms * perArm;
+  const positions = new Float32Array(n * 3);
+  const uni   = new Float32Array(n * 4);
+  const burst = new Float32Array(n * 4);
+  const seeds = new Float32Array(n * 2);
+  const { maelRInner, maelROuter, maelTightness, maelThickness, maelBulge, maelFunnel,
+          burstSpread, burstCurl, burstBend, burstCoreStart } = CFG;
+  const logSpan = Math.log(maelROuter / maelRInner);
+  let k = 0;
+  for (let a = 0; a < arms; a++) {
+    const armPhase = Math.random() * TAU;
+    const armBright = 0.55 + 0.45 * Math.random();
+    const bz = Math.random() * 2 - 1, bth = Math.random() * TAU, brr = Math.sqrt(1 - bz * bz);
+    const dir = new THREE.Vector3(brr * Math.cos(bth), brr * Math.sin(bth), bz);
+    const up = Math.abs(dir.y) > 0.99 ? new THREE.Vector3(1,0,0) : new THREE.Vector3(0,1,0);
+    const bu = new THREE.Vector3().crossVectors(dir, up).normalize();
+    const bv = new THREE.Vector3().crossVectors(dir, bu).normalize();
+    let len = burstSpread * (0.28 + Math.random() * Math.random() * 1.15);
+    if (Math.random() > 0.86) len *= 1.7;
+    const f1 = 2 + Math.random() * 5, f2 = 2 + Math.random() * 5;
+    const p1 = Math.random() * TAU, p2 = Math.random() * TAU;
+    const curl = burstCurl * (0.45 + Math.random());
+    const bend = new THREE.Vector3()
+      .addScaledVector(bu, Math.random() - 0.5)
+      .addScaledVector(bv, Math.random() - 0.5)
+      .normalize().multiplyScalar(burstBend * (0.4 + Math.random()));
+    const p = new THREE.Vector3();
+    for (let i = 0; i < perArm; i++) {
+      const t = perArm > 1 ? i / (perArm - 1) : 0;
+      const radius = maelRInner * Math.exp(logSpan * t) * (1 + (Math.random() - 0.5) * 0.05);
+      const angle = armPhase + maelTightness * Math.log(radius / maelRInner) + (Math.random() - 0.5) * 0.06;
+      const inner = radius / maelRInner - 1;
+      const bulge = 1 + maelBulge * Math.exp(-inner * inner * 1.6);
+      const rNorm = Math.min(1, radius / maelROuter);
+      const funnelZ = -maelFunnel * maelROuter * 0.4 * Math.pow(1 - rNorm, 1.8);
+      positions[k*3]     = radius * Math.cos(angle);
+      positions[k*3 + 1] = radius * Math.sin(angle);
+      positions[k*3 + 2] = funnelZ + gauss() * 0.5 * maelThickness * (0.4 + radius * 0.03) * bulge;
+      const theta = TAU * Math.random(), phi = Math.acos(2 * Math.random() - 1), sinPhi = Math.sin(phi);
+      const spread = Math.random() * (Math.random() < 0.3 ? 4 : 1) * 0.4;
+      const ux = sinPhi * Math.cos(theta) * spread;
+      const uy = sinPhi * Math.sin(theta) * spread;
+      const uz = Math.cos(phi) * spread;
+      uni[k*4]     = Math.hypot(ux - 2.5, uz);
+      uni[k*4 + 1] = uy;
+      uni[k*4 + 2] = Math.random();
+      uni[k*4 + 3] = a % 2;
+      const rad = burstCoreStart + len * t;
+      p.copy(dir).multiplyScalar(rad);
+      p.addScaledVector(bu, Math.sin(t * f1 * Math.PI + p1) * curl * t);
+      p.addScaledVector(bv, Math.cos(t * f2 * Math.PI + p2) * curl * t);
+      p.addScaledVector(bend, t * t);
+      burst[k*4] = p.x; burst[k*4+1] = p.y; burst[k*4+2] = p.z; burst[k*4+3] = t;
+      seeds[k*2] = Math.random(); seeds[k*2 + 1] = armBright;
+      k++;
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  g.setAttribute('aUni',     new THREE.BufferAttribute(uni, 4));
+  g.setAttribute('aBurst',   new THREE.BufferAttribute(burst, 4));
+  g.setAttribute('aSeed',    new THREE.BufferAttribute(seeds, 2));
+  return g;
+}
+const rotation = (x, y, z) => new THREE.Matrix3().setFromMatrix4(
+  new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(x, y, z)));
+
+const MAEL_TILT = 0.95;
+/* Resting look-target offset along the disc axis. Negative = above the disc, so
+   the hole renders LOW in the frame instead of clipping off the top edge. */
+const MAEL_LOOK_Z = -6;
+const SIZE_MULT = { galaxy: 1, burst: 1.55, mael: 1.55 };
+const morphMat = new THREE.ShaderMaterial({
+  uniforms: {
+    iTime:{value:0}, uAlpha:{value:0}, uRes:{value:new THREE.Vector2(1,1)},
+    uT1:{value:0}, uT2:{value:0},
+    uNeedUni:{value:1}, uNeedBurst:{value:0}, uNeedMael:{value:0},
+    uPointer:{value:new THREE.Vector3(0,0,0)}, uPointerAxis:{value:new THREE.Vector3(0,0,1)},
+    uPointerR:{value:3.4}, uPointerPush:{value:0}, uPointerSwirl:{value:0}, uPointerGlow:{value:0},
+    uStagger:{value:0.55}, uMidBoost:{value:0.7},
+    uArc1:{value:1.1}, uSwirl1:{value:2.2}, uArc2:{value:9}, uSwirl2:{value:3.4},
+
+    uUniTime:{value:6}, uUniRot:{value:rotation(1,-1.2,0.5)}, uUniScale:{value:1.2},
+    uUniEllipse:{value:1}, uUniLife:{value:6}, uUniSpawnSpread:{value:1},
+    uUniOmega:{value:1.2}, uUniV0:{value:0.72}, uUniDecay:{value:0.036},
+    uUniSize:{value:70 * SIZE_MULT.galaxy}, uUniBright:{value:0.58},
+
+    uBurstScale:{value:7}, uBurstSway:{value:0.08}, uBurstSwaySpeed:{value:1.1},
+    uBurstShimmer:{value:0.55}, uBurstShimmerSpeed:{value:3}, uBurstTipFade:{value:0.42},
+    uBurstSize:{value:44 * SIZE_MULT.burst}, uBurstBright:{value:0.85},
+
+    uMaelRot:{value:rotation(MAEL_TILT,0,0)}, uRInner:{value:6.4}, uROuter:{value:48},
+    uSpin:{value:0.085 * 3}, uMaelTwinkle:{value:0.75},
+    uCrescent:{value:0.9}, uCrescentAngle:{value:-0.7},
+    uMaelSize:{value:62 * SIZE_MULT.mael}, uMaelBright:{value:0.56}, uMaelPhase:{value:0},
+
+    uUniDeep:{value:C(PAL.accent500)}, uUniMid:{value:C(PAL.accent400)}, uUniBrightC:{value:C(PAL.accent200)},
+    uBurstCore:{value:C(PAL.foreground)}, uBurstInner:{value:C(PAL.accent200)},
+    uBurstMid:{value:C(PAL.accent500)}, uBurstOuter:{value:C(PAL.accent600)},
+    uArm:{value:C(PAL.accent500)}, uArmHot:{value:C(PAL.accent300)},
+    uMaelCore:{value:C(PAL.accent700)}, uPink:{value:C(PAL.signalGlow)},
+
+    uCoreStrength:{value:1.5}, uCoreSize:{value:0.5}, uCoreSharp:{value:2.4},
+    uHaloAmount:{value:0.6}, uHaloWidth:{value:1}, uHaloFalloff:{value:1.5},
+  },
+  vertexShader: MORPH_VERT, fragmentShader: MORPH_FRAG,
+  blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, transparent: true,
+});
+const morph = new THREE.Points(buildMorph(), morphMat);
+morph.frustumCulled = false; scene.add(morph);
+
+const GLOW = {
+  uni:   { coreStrength:1.5,  coreSize:0.5,  coreSharp:2.4, haloAmount:0.6,  haloWidth:1, haloFalloff:1.5 },
+  burst: { coreStrength:1.7,  coreSize:0.34, coreSharp:3,   haloAmount:0.3,  haloWidth:1, haloFalloff:1.9 },
+  mael:  { coreStrength:1.35, coreSize:0.4,  coreSharp:2.8, haloAmount:0.38, haloWidth:1, haloFalloff:1.9 },
+};
+const POINTER_FORCE = {
+  uni:   { radius:3.4, push:0.42, swirl:0.75, glow:1.1 },
+  burst: { radius:3.6, push:0.5,  swirl:0.95, glow:1.3 },
+  mael:  { radius:10,  push:1.3,  swirl:2.2,  glow:0.9 },
+};
+
+/* ════════════════════════════════════════════════════════════════════════════
+   WARP TUNNEL — preloader first, then the EXPLORE corridor's backdrop
+   (island deviation #5: kept alive rather than disposed after the handoff)
+   ════════════════════════════════════════════════════════════════════════════ */
+const WARP_N = 1400, WARP_RADIUS = 9, STREAK_WIDTH = 2.2;
+function buildWarp() {
+  const verts = WARP_N * 4;
+  const pos = new Float32Array(verts * 3);
+  const aSeed = new Float32Array(verts), aSpeed = new Float32Array(verts);
+  const aRadius = new Float32Array(verts), aAngle = new Float32Array(verts);
+  const aEnd = new Float32Array(verts), aSide = new Float32Array(verts);
+  const idx = new Uint32Array(WARP_N * 6);
+  for (let s = 0; s < WARP_N; s++) {
+    const seed = Math.random(), speed = 0.5 + 0.9 * Math.random();
+    const radius = 0.35 + WARP_RADIUS * Math.sqrt(Math.random()), angle = Math.random() * TAU;
+    const ends = [0, 0, 1, 1], sides = [-1, 1, -1, 1];
+    for (let v = 0; v < 4; v++) {
+      const i = s * 4 + v;
+      aSeed[i] = seed; aSpeed[i] = speed; aRadius[i] = radius; aAngle[i] = angle;
+      aEnd[i] = ends[v]; aSide[i] = sides[v];
+    }
+    const b = s * 4, o = s * 6;
+    idx[o] = b; idx[o+1] = b+1; idx[o+2] = b+2;
+    idx[o+3] = b+1; idx[o+4] = b+3; idx[o+5] = b+2;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('aSeed',   new THREE.BufferAttribute(aSeed, 1));
+  g.setAttribute('aSpeed',  new THREE.BufferAttribute(aSpeed, 1));
+  g.setAttribute('aRadius', new THREE.BufferAttribute(aRadius, 1));
+  g.setAttribute('aAngle',  new THREE.BufferAttribute(aAngle, 1));
+  g.setAttribute('aEnd',    new THREE.BufferAttribute(aEnd, 1));
+  g.setAttribute('aSide',   new THREE.BufferAttribute(aSide, 1));
+  g.setIndex(new THREE.BufferAttribute(idx, 1));
+  return g;
+}
+const warpMat = new THREE.ShaderMaterial({
+  uniforms:{
+    iTime:{value:0}, uBoost:{value:0}, uSurge:{value:0},
+    uSpread:{value:Math.max(1, innerWidth / innerHeight)}, uWidth:{value:STREAK_WIDTH},
+    uResolution:{value:new THREE.Vector2(innerWidth, innerHeight)},
+    uOpacity:{value:1}, uHead:{value:C(PAL.accent300)}, uTail:{value:C(PAL.accent700)},
+    uPink:{value:C(PAL.signalGlow)},
+  },
+  vertexShader: WARP_VERT, fragmentShader: WARP_FRAG,
+  blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false,
+  transparent: true, side: THREE.DoubleSide,
+});
+const warp = new THREE.Mesh(buildWarp(), warpMat);
+warp.frustumCulled = false;
+camera.add(warp);
+
+/* ════════════════════════════════════════════════════════════════════════════
+   POINTER — a body in the scene
+   ════════════════════════════════════════════════════════════════════════════ */
+const pointer = { x: 0, y: 0, moved: false };
+if (!isTouch) {
+  addEventListener('pointermove', e => {
+    pointer.x = (e.clientX / innerWidth) * 2 - 1;
+    pointer.y = -((e.clientY / innerHeight) * 2 - 1);
+    pointer.moved = true;
+  }, { passive: true });
+}
+const pointerWorld = new THREE.Vector3();
+const _look = new THREE.Vector3();
+
+/* ════════════════════════════════════════════════════════════════════════════
+   CAMERA CONTROLLER — scroll → forms → camera flight
+   ════════════════════════════════════════════════════════════════════════════ */
+const fromDiscFrame = (x, y, z) => {
+  const c = Math.cos(MAEL_TILT), s = Math.sin(MAEL_TILT);
+  return [x, y * c - z * s, y * s + z * c];
+};
+const uniEye = new THREE.Vector3(), burstEye = new THREE.Vector3(), maelEye = new THREE.Vector3();
+const uniLook = new THREE.Vector3(), burstLook = new THREE.Vector3(), maelLook = new THREE.Vector3();
+const eye = new THREE.Vector3(), look = new THREE.Vector3();
+
+let appearStart = 0, appear = 0, sceneArmed = false;
+const frame = { t1:0, t2:0, exit:0, exploreAmt:0, s1:0, s2:0, s3:0 };
+
+function driveCamera(t) {
+  const S = scrollState, vh = S.vh;
+  const hero = S.tops.hero, sitemap = S.tops.sitemap, roadmap = S.tops.roadmap, impact = S.tops.impact;
+
+  /* The Games rail owns the whole of its slide's travel window, and the scene's
+     stage-2 motion (burst → disc) is keyed off the same span — so the two used to
+     advance together and read as one scroll fighting itself. Fix: run stage 2 on
+     a scroll coordinate whose clock STOPS across the rail's window. `yM` is still
+     monotonic in scroll, so everything downstream still reverses cleanly; the
+     rail's span is removed from the denominators too, or the morph would just
+     compress into what is left. */
+  const railSpan = Math.max(0, S.span.sitemap);
+  const railEnd = sitemap + railSpan;
+  const yM = S.y < sitemap ? S.y : (S.y > railEnd ? S.y - railSpan : sitemap);
+  const roadmapM = roadmap - railSpan;
+
+  const s1 = clamp01((S.y - hero) / Math.max(1, sitemap - hero));
+  const s2 = clamp01((yM - sitemap) / Math.max(1, roadmapM - sitemap));
+  const t1 = smoothstep(0.25, 1, s1);
+  const t2 = smoothstep(0.30, 0.95, s2);
+  const dive = s1;
+  const burstBegins = hero + 0.25 * (sitemap - hero);
+  const burstPhase = clamp01((yM - burstBegins) / Math.max(1, roadmapM - burstBegins));
+
+  // Shared with driveCompositions so the copy and the scene cannot disagree.
+  frame.s1 = s1; frame.s2 = s2;
+  frame.s3 = clamp01((S.y - roadmap) / Math.max(1, impact - roadmap));
+
+  // exit dive — the camera falls through the disc and emerges in the corridor
+  const exit = clamp01((S.y + 2 * vh - impact) / (2.4 * vh));
+  const onAxis  = smoothstep(0, 0.65, exit);
+  const through = Math.pow(smoothstep(0.15, 1, exit), 3);
+  const ahead   = smoothstep(0.12, 0.5, exit);
+  const exploreAmt = clamp01((S.y - impact + vh * 0.35) / (vh * 1.0));
+
+  frame.t1 = t1; frame.t2 = t2; frame.exit = exit; frame.exploreAmt = exploreAmt;
+
+  const held = 1 - onAxis;
+  const mx = pointer.moved ? pointer.x : 0;
+  const my = pointer.moved ? pointer.y : 0;
+
+  {
+    const angle = Math.sin(t * 0.035) * 0.16;
+    const dist = 10.5 - 3.5 * dive;
+    const y = Math.sin(t * 0.05) * 2.2;
+    uniEye.set(Math.sin(angle) * dist, y, Math.cos(angle) * dist);
+    uniLook.set(0, 0, 0);
+  }
+  {
+    const orbit = burstPhase * 2.6 + Math.sin(t * 0.05) * 0.09 + mx * 0.6;
+    const dist = 11 + 1.8 * burstPhase;
+    const y = 2 + 6 * burstPhase;
+    burstEye.set(Math.sin(orbit) * dist, y, Math.cos(orbit) * dist);
+    burstLook.set(0, 0, 0);
+  }
+  let maelFov = 66;
+  {
+    const pass = smoothstep(0, 1, S.local.roadmap);
+    const swing = pass * 2.6;
+    const radius = lerp(26, 28, pass) * (1 - onAxis);
+    const eyeZ = lerp(14, -22, through);
+    const [ex, ey, ez] = fromDiscFrame(Math.cos(swing) * radius, Math.sin(swing) * radius, eyeZ);
+    maelEye.set(ex, ey, ez);
+    // The look point is what lands at screen centre. Aiming it at the axis point
+    // level with the eye (the old `eyeZ`) put the disc ~28° above the axis, right
+    // at the edge of the 33° half-FOV — so the hole sat clipped off the top of the
+    // frame. MAEL_LOOK_Z is negative, i.e. ABOVE the disc in world terms
+    // (fromDiscFrame maps +z to −y), which drops the disc into the lower half of
+    // the frame where the Models copy leaves room. The dive still needs the target
+    // pushed far down the axis, so `ahead` lerps back to that.
+    const [lx, ly, lz] = fromDiscFrame(0, 0, lerp(MAEL_LOOK_Z, eyeZ - 40, ahead));
+    maelLook.set(lx, ly, lz);
+    maelFov = lerp(lerp(66, 76, pass), 104, through);
+  }
+
+  eye.copy(uniEye).lerp(burstEye, t1).lerp(maelEye, t2);
+  look.copy(uniLook).lerp(burstLook, t1).lerp(maelLook, t2);
+
+  const px = lerp(lerp(0.6, 0, t1), 8.85, t2);
+  const py = lerp(lerp(0.6, 2.2, t1), 7.08, t2);
+  eye.x += mx * px * held;
+  eye.y += my * py * held;
+  eye.z += (1 - appear) * 8;
+
+  camera.position.copy(eye);
+  camera.lookAt(look);
+  camera.fov = lerp(lerp(58, 62, t1), maelFov, t2);
+  camera.updateProjectionMatrix();
+
+  if (pointer.moved) {
+    const depth = camera.position.distanceTo(look);
+    pointerWorld.set(pointer.x, pointer.y, 0.5).unproject(camera);
+    pointerWorld.sub(camera.position).normalize().multiplyScalar(depth).add(camera.position);
+  }
+  _look.copy(look).sub(camera.position).normalize();
+  return { t1, t2, exploreAmt };
+}
+
+const blend3 = (a, b, c, t1, t2) => lerp(lerp(a, b, t1), c, t2);
+
+/* ════════════════════════════════════════════════════════════════════════════
+   DOM — frames, reveals, nav, models rail, explore corridor
+   ════════════════════════════════════════════════════════════════════════════ */
+function bezier(x1, y1, x2, y2) {
+  const cx = 3*x1, bx = 3*(x2-x1)-cx, ax = 1-cx-bx;
+  const cy = 3*y1, by = 3*(y2-y1)-cy, ay = 1-cy-by;
+  const fx = t => ((ax*t+bx)*t+cx)*t;
+  const dfx = t => (3*ax*t+2*bx)*t+cx;
+  return x => {
+    let t = x;
+    for (let i = 0; i < 6; i++) {
+      const e = fx(t) - x; if (Math.abs(e) < 1e-5) break;
+      const d = dfx(t); if (Math.abs(d) < 1e-6) break;
+      t -= e / d;
+    }
+    t = Math.min(1, Math.max(0, t));
+    return ((ay*t+by)*t+cy)*t;
+  };
+}
+// Spring-timed — never linear, never the browser default.
+const easeReveal = bezier(0.16, 1, 0.3, 1);
+const easeSpring = bezier(0.16, 1.4, 0.3, 1);
+
+/* The Models section's stations — an AUTHORED pick, not a leaderboard slice.
+   `thumb` URLs are BAKED so the plates fill from the first paint (they are also
+   preloaded in <head> — keep the two lists in step).
+
+   This same list drives the EXPLORE corridor's cards. */
+const TOP_MODELS = [
+  { id:'hunyuanworld-1', name:'HunyuanWorld 1.0', author:'Tencent Hunyuan', category:'World', params:'478MB', stars:8420,
+    tags:['3D scene','text-to-world','panorama'],
+    tagline:'Generates immersive, explorable, simulation-ready 3D worlds from a single sentence or image.',
+    thumb:'https://huggingface.co/tencent/HunyuanWorld-1/resolve/main/assets/teaser.png',
+    thumbProxy:'' },
+  { id:'ltx-video', name:'LTX-Video', author:'Lightricks', category:'Video', params:'2B', stars:7480,
+    tags:['real-time','text-to-video','fast'],
+    tagline:'First DiT-based video model fast enough to generate footage faster than real time.',
+    // MOVING preview: the catalogue's own media/trailer.gif.
+    //
+    // ⚠ DO NOT "FIX" THIS BACK TO A LIGHTER CLIP. It is 140 MB (147,294,304
+    // bytes via `curl -sL`; the HF LFS redirect body reports ~1 KB, so it looks
+    // free unless you follow), and it makes this plate visibly strobe: a GIF
+    // that large decodes to gigabytes of RGBA frames, and the browser evicting
+    // and re-decoding them under memory pressure flickers. That was diagnosed
+    // (the other three plates share this exact markup and are smooth — the
+    // asset is the only variable) and the owner's explicit, repeated call is to
+    // keep the trailer and accept the twitch: the content is worth more here
+    // than the smoothness.
+    //
+    // If it is ever reversed, the same repo's clips are the drop-ins:
+    // ltx-video_example_00005.gif (5.5 MB) or ltx-video_i2v_example_00001.gif (8.9 MB).
+    thumb:'https://cdn-thumbnails.huggingface.co/social-thumbnails/models/Lightricks/LTX-Video.png',
+    motion:'https://huggingface.co/Lightricks/LTX-Video/resolve/main/media/trailer.gif',
+    thumbProxy:'' },
+  { id:'matrix-3d', name:'Matrix-3D', author:'Skywork AI', category:'World', params:'738M', stars:738,
+    tags:['3D scene','panorama','omnidirectional'],
+    tagline:'Builds explorable large-scale 3D scenes with high-quality panorama video from one image or prompt.',
+    thumb:'https://raw.githubusercontent.com/SkyworkAI/Matrix-3D/HEAD/asset/logo.PNG',
+    thumbProxy:'' },
+  { id:'open-sora', name:'Open-Sora 2.0', author:'HPC-AI Tech', category:'Video', params:'11B', stars:26800,
+    tags:['open pipeline','text-to-video','reproducible'],
+    tagline:'Fully open video generation pipeline — weights, data and training code in the open.',
+    // MOVING preview, same layer-then-retire treatment as LTX-Video above. The
+    // model's HF repo carries no media at all; its README points at the separate
+    // hpcaitech/Open-Sora-Demo repo, and this is the smallest v2.0 sample there
+    // (1.5 MB — light enough that it will not strobe the way the 140 MB LTX
+    // trailer does). `thumb` is the ~406 KB social card that holds the plate
+    // while it streams.
+    thumb:'https://cdn-thumbnails.huggingface.co/social-thumbnails/models/hpcai-tech/Open-Sora-v2.png',
+    motion:'https://raw.githubusercontent.com/hpcaitech/Open-Sora-Demo/main/demo/v2.0/motion_score_1.gif',
+    thumbProxy:'' },
+  { id:'opengame', name:'OpenGame', author:'CUHK MMLab', category:'Game', params:'27B', stars:0,
+    tags:['agentic','web games','GameCoder-27B'],
+    tagline:'Open agentic framework that builds an end-to-end playable web game from a single prompt.',
+    thumb:'https://opengraph.githubassets.com/1/leigest519/OpenGame',
+    thumbProxy:'' },
+];
+
+/* GAMES section — looping previews from /templates/comingsoon.
+ *
+ * The load-bearing part is **`autoplay = true` plus a `canplay` → `play()`**. A
+ * <video> with no poster paints NOTHING until it has decoded a frame, so an
+ * element that is merely preloaded and played later is an empty box in the
+ * meantime — that was this section's bug, not the files and not the bandwidth.
+ *
+ * These clips also do NOT survive an ffmpeg round-trip: `ffprobe` rejects three
+ * of them outright ("moov atom not found" — their `mdat` declares a size that
+ * overruns `moov`), and anything transcoded from them comes out as garbage.
+ * Browsers demux them happily, which is the only thing that matters here.
+ * Do not preprocess these files; ship them as they are.
+ */
+const GAME_CLIPS = [
+  'tower-defense.mp4',
+  'dungeon-crawler.mp4',
+  'quiz-duel.mp4',
+  'snake.mp4',
+];
+/* The row is a rail, laid out and travelled exactly like the Models stations:
+   design-pixel tiles on a track wider than the frame, translated by the slide's
+   own local scroll progress. Travel is `trackWidth − frameWidth` so the last
+   tile finishes flush with the right edge rather than scrolling past it. */
+const TILE_W = 460, TILE_GAP = 28, TILE_PAD = 50, FRAME_W = 1440;
+const GAME_TRACK_W = TILE_PAD * 2 + GAME_CLIPS.length * TILE_W + (GAME_CLIPS.length - 1) * TILE_GAP;
+const GAME_TRAVEL = Math.max(0, GAME_TRACK_W - FRAME_W);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+function clipVideo(file) {
+  const v = document.createElement('video');
+  v.src = `/templates/comingsoon/${encodeURIComponent(file)}`;
+  v.loop = true;
+  v.muted = true;
+  v.playsInline = true;
+  v.autoplay = true;              // decodes and paints a frame without waiting for us
+  v.setAttribute('aria-hidden', 'true');
+  const tryPlay = () => v.play().catch(() => {});   // SILENT-OK: autoplay refusal is
+  v.addEventListener('canplay', tryPlay);           // routine (power saving); the frame
+  tryPlay();                                        // is already painted either way
+  v.addEventListener('error', () => console.warn('[landing] game preview failed to load:', file));
+  return v;
+}
+
+const gameRow = document.getElementById('gameRow');
+gameRow.style.width = GAME_TRACK_W + 'px';
+GAME_CLIPS.forEach((file, i) => {
+  const tile = document.createElement('div');
+  tile.className = 'game-tile';
+  tile.dataset.delay = String(220 + i * 110);
+  tile.append(clipVideo(file));
+  gameRow.append(tile);
+});
+
+/* ── The hero deck ───────────────────────────────────────────────────────────
+   Four tilted shortcut cards on the hero's side walls: the two sections below
+   it (Games, Models), the Unreal MCP link (no slide of its own, so it goes
+   straight into the studio), and PROVIDERS (same — a fact about the product,
+   not a section). Title only, no description — name + art carry the pitch.
+
+   Two card kinds. Games/Models are `.hdc-thumb` full-bleed photo/clip
+   backgrounds, previewed with the very asset their own section already loads:
+   the Games card runs a `comingsoon` clip through the SAME `clipVideo()` the
+   rail does (autoplay/`canplay` is load-bearing; see GAME_CLIPS above), the
+   Models card shows the first station's already `<link rel=preload>`ed
+   thumbnail (no new request). MCP/PROVIDERS are `.hdc-icons` — one or more
+   centred marks, not a cropped photo, because a vector logo isn't a
+   background image (`flex-wrap` lets Providers' six fit three-per-row).
+   `ue-mark.png` is the roundel alone, cropped — the full lockup's
+   "UNREAL ENGINE" wordmark is redundant with this card's own "MCP" title and
+   lands on top of it at any size this card offers. `chatgpt.png` is
+   solid black line art on transparent — invisible on this card's near-black
+   gradient without `invert:true` (`.hdc-icon--invert`). No category label, no
+   CTA button, no scrim on any card — the card itself is the click target
+   (`el` is a `<button>`).
+
+   Geometry is authored in the 1440×800 design frame, so the deck scales with
+   the composition. `.hdc` is sized 358×226 (0.7× the previous 510×324, every
+   inner px scaled the same 0.7) and anchored at the frame's true centre
+   (`top:50%`). `--wall-x` (±460) is NOT derived from the card's half-width by
+   formula — see the `.hdc--left`/`--right` comment for why a
+   perspective-rotated card's rendered bounding box doesn't scale
+   the way its CSS width does, which is also why this value isn't simply the
+   previous ±405 scaled by 0.7. Wall side + vertical offset spread the four
+   cards into two rows per wall (vy ±135); the start bar is back at its
+   original shared bottom position (`top:703px`), not centred in this gap. */
+const HERO_DECK = [
+  { side:'left',  vy:-135, delay:280, name:'Games',
+    clip:GAME_CLIPS[0], goto:'sitemap' },
+  { side:'right', vy:-135, delay:430, name:'MCP',
+    icons:[{ src:'/images/ue-mark.png', big:true }], enter:true },
+  { side:'left',  vy:135,  delay:580, name:'Models',
+    img:TOP_MODELS[0].thumb, goto:'timeline' },
+  { side:'right', vy:135,  delay:730, name:'Providers',
+    icons:[
+      '/images/kimi.png',
+      '/images/claude-ai-icon.png',
+      // chatgpt.png is solid black line art on a transparent ground — see
+      // .hdc-icon--invert above; without it, it's invisible on this card.
+      { src:'/images/chatgpt.png', invert:true },
+      '/images/deepseek-logo-icon.png',
+      '/images/google-gemini.png',
+      '/images/Z.ai_(company_logo).svg.png',
+    ], enter:true },
+];
+const heroDeck = document.getElementById('heroDeck');
+HERO_DECK.forEach(c => {
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = `hdc hdc--${c.side}`;
+  el.style.setProperty('--vy', `${c.vy}px`);
+  el.dataset.vy = String(c.vy);
+  el.dataset.delay = String(c.delay);
+
+  const face = document.createElement('div');
+  face.className = 'hdc-face';
+  if (c.clip) {
+    const v = clipVideo(c.clip);
+    v.className = 'hdc-thumb';
+    v.addEventListener('canplay', () => v.classList.add('loaded'));
+    face.append(v);
+  } else if (c.img) {
+    const img = document.createElement('img');
+    img.className = 'hdc-thumb'; img.alt = ''; img.decoding = 'async'; img.src = c.img;
+    img.addEventListener('load', () => img.classList.add('loaded'));
+    // The plain gradient face is a perfectly good card — but a dead preview URL
+    // is still a fact worth saying out loud.
+    img.addEventListener('error', () => {
+      console.warn('[landing] hero deck preview failed to load:', c.img);
+      img.remove();
+    });
+    face.append(img);
+  } else if (c.icons) {
+    const row = document.createElement('div');
+    row.className = 'hdc-icons';
+    c.icons.forEach(spec => {
+      const { src, invert, big } = typeof spec === 'string' ? { src: spec } : spec;
+      const img = document.createElement('img');
+      img.className = 'hdc-icon' + (invert ? ' hdc-icon--invert' : '') + (big ? ' hdc-icon--big' : '');
+      img.alt = ''; img.decoding = 'async'; img.src = src;
+      img.addEventListener('load', () => img.classList.add('loaded'));
+      img.addEventListener('error', () => {
+        console.warn('[landing] hero deck icon failed to load:', src);
+        img.remove();
+      });
+      row.append(img);
+    });
+    face.append(row);
+  }
+  face.insertAdjacentHTML('beforeend',
+    `<div class="hdc-id"><h3 class="hdc-name u-grad">${esc(c.name)}</h3></div>`);
+
+  el.append(face);
+  el.addEventListener('click', () => c.enter ? enterStudio('') : gotoSlide(c.goto));
+  heroDeck.append(el);
+});
+const FIRST_X = 73, STEP_GAP = 640, STATION_W = 470;
+const trackEl = document.getElementById('track');
+const baselineEl = document.getElementById('baseline');
+const lastX = FIRST_X + (TOP_MODELS.length - 1) * STEP_GAP;
+const TRACK_W = lastX + STATION_W + FIRST_X;
+const TRAVEL = (TOP_MODELS.length - 1) * STEP_GAP;
+trackEl.style.width = TRACK_W + 'px';
+baselineEl.style.width = (TRACK_W - 100) + 'px';
+
+const MARKER_SVG = i => `<svg viewBox="0 0 19 19" aria-hidden="true"><path d="M9.5 0L19 19H0L9.5 0Z" fill="url(#gTick${i})"/><defs><linearGradient id="gTick${i}" x1="0" y1="19" x2="19" y2="0" gradientUnits="userSpaceOnUse"><stop stop-color="#ffffff"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs></svg>`;
+
+TOP_MODELS.forEach((m, i) => {
+  const x = FIRST_X + i * STEP_GAP;
+  const tick = document.createElement('div');
+  tick.className = 'tick'; tick.style.left = (x - 20) + 'px';
+  tick.dataset.delay = String(200 + i * 120);
+  const marker = document.createElement('div');
+  marker.className = 'marker'; marker.style.left = (x - 20 - 9.5) + 'px';
+  marker.innerHTML = MARKER_SVG(i);
+  marker.dataset.delay = String(200 + i * 120);
+  const station = document.createElement('div');
+  station.className = 'station'; station.style.left = x + 'px';
+  // The preview <img> is in the markup from the start with its baked src, so it
+  // begins fetching now rather than after the catalogue round-trip.
+  const shotImg = m.thumb
+    // No fetchpriority bump: the <head> preloads already started these at the
+    // image default, and raising them would starve the three.js module fetch
+    // the whole scene is waiting on.
+    ? `<img class="station-thumb" alt="" loading="eager" decoding="async"` +
+      ` src="${esc(m.thumb)}" data-proxy="${esc(m.thumbProxy || '')}" />`
+    : '';
+  station.innerHTML =
+    `<div class="station-shot" data-station="${i}" data-delay="${160 + i * 120}">${shotImg}</div>` +
+    `<div class="station-head" data-delay="${260 + i * 120}">` +
+      `<div class="station-index">${String(i + 1).padStart(2, '0')}</div>` +
+      `<div class="station-title u-grad">${esc(m.name)}</div>` +
+    `</div>` +
+    `<p class="station-body" data-delay="${380 + i * 120}">${esc(m.tagline)}</p>`;
+  wireStationThumb(station.querySelector('.station-thumb'));
+  if (m.motion) wireStationMotion(station.querySelector('.station-shot'), m.motion);
+  trackEl.append(tick, marker, station);
+});
+
+/* A moving preview, layered OVER the still plate rather than replacing its src.
+   Decoding a multi-megabyte clip takes long enough that swapping `src` would
+   blank the plate mid-flight — which is the exact failure this section already
+   had. So the still holds the frame from first paint, the clip streams in
+   behind it, and only a fully-decoded clip is faded in on top. It is
+   deliberately NOT preloaded in <head>: it must never compete with the still,
+   the fonts, or the three.js module the whole scene is blocked on. A clip that
+   never arrives costs nothing — the still simply stays. */
+function wireStationMotion(shot, src) {
+  if (!shot) return;
+  const clip = new Image();
+  clip.decoding = 'async';
+  clip.addEventListener('load', () => {
+    clip.className = 'station-thumb station-motion loaded';
+    clip.alt = '';
+    shot.append(clip);
+    // Drop the still the moment the clip is up. Leaving it stacked underneath is
+    // what made this plate strobe like a hologram: GIF frames are composited
+    // with per-frame transparency and disposal, so on every frame that carries
+    // transparent pixels the still showed THROUGH the clip and back out again.
+    // The still exists only to hold the plate until the clip arrives; once it
+    // has, the still is pure interference.
+    shot.classList.add('has-motion');
+  });
+  clip.addEventListener('error', err => {
+    // Loud on purpose: a silently absent clip is indistinguishable
+    // from one that was never wired up.
+    console.warn('[landing] moving preview failed to load, keeping the still:', src, err);
+  });
+  clip.src = src;
+}
+
+/* Direct CDN → our same-origin proxy → the plate's plain gradient. Same cascade
+   the Explore tab uses; a model with no resolvable preview must never leave a
+   broken frame on the page. */
+function wireStationThumb(img) {
+  if (!img) return;
+  img.addEventListener('load', () => img.classList.add('loaded'));
+  img.addEventListener('error', () => {
+    const proxy = img.dataset.proxy;
+    if (proxy && !img.dataset.tried) { img.dataset.tried = '1'; img.src = proxy; }
+    else img.remove();
+  });
+  if (img.complete && img.naturalWidth > 0) img.classList.add('loaded');  // preload cache hit
+}
+
+/* Repair path only: the baked URLs above already drove the first paint. This
+   fills a plate whose baked URL rotted (or was absent) from the live record. */
+function fillStationThumbs(all) {
+  const byId = new Map(all.map(m => [m.id, m]));
+  TOP_MODELS.forEach((m, i) => {
+    const shot = trackEl.querySelector(`.station-shot[data-station="${i}"]`);
+    if (!shot || shot.querySelector('.station-thumb')) return;   // already showing one
+    const live = byId.get(m.id);
+    const src = live && (live.thumbnail_url || live.thumbnail_proxy);
+    if (!src) return;
+    const img = document.createElement('img');
+    img.className = 'station-thumb'; img.alt = ''; img.decoding = 'async';
+    img.dataset.proxy = live.thumbnail_proxy || '';
+    wireStationThumb(img);
+    img.src = src;
+    shot.prepend(img);
+  });
+}
+
+/* ── The EXPLORE corridor ───────────────────────────────────────────────── */
+const CORRIDOR_STEP = 320, CORRIDOR_VY = 120, CORRIDOR_MAX = 24;
+const etTrack = document.getElementById('etTrack');
+let corridorDepth = 0;
+
+const fmtStars = n => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 1 : 2).replace(/\.0$/, '') + 'k' : String(n);
+
+function cardHTML(m) {
+  const tags = (m.tags || []).slice(0, 4).map(t => `<span class="emc-tag">${esc(t)}</span>`).join('');
+  const params = m.params && m.params !== '—' ? `<span class="emc-params">${esc(m.params)}</span>` : '';
+  const thumb = m.thumbnail_url || m.thumbnail_proxy
+    ? `<img class="emc-thumb" alt="" loading="eager" decoding="async" src="${esc(m.thumbnail_url || m.thumbnail_proxy)}" data-proxy="${esc(m.thumbnail_proxy || '')}" />`
+    : '';
+  return `<div class="emc-enter"><div class="emc-flip">
+    <div class="emc-face emc-front">
+      ${thumb}
+      <div class="emc-scrim" aria-hidden="true"></div>
+      <div class="emc-cat"><span>${esc(m.category || 'Model')}</span></div>
+      <div class="emc-front-id">
+        <span class="emc-author">${esc(m.author || '')}</span>
+        <h3 class="emc-name u-grad">${esc(m.name)}</h3>
+        ${params}
+      </div>
+    </div>
+    <div class="emc-face emc-back">
+      <h3 class="emc-name emc-name--sm u-grad">${esc(m.name)}</h3>
+      <div class="emc-stars">★ ${fmtStars(m.stars || 0)}</div>
+      <p class="emc-tagline">${esc(m.tagline || '')}</p>
+      <div class="emc-tags">${tags}</div>
+      <button class="emc-open" type="button"><span>Open in Arcanion</span></button>
+    </div>
+  </div></div>`;
+}
+
+function buildCorridor(models) {
+  const walls = { left: 0, right: 0 };
+  models.forEach((m, i) => {
+    const side = i % 2 === 0 ? 'left' : 'right';
+    const wallIdx = walls[side]++;
+    const el = document.createElement('article');
+    el.className = `emc emc--${side}`;
+    el.style.setProperty('--i', String(i));
+    el.style.setProperty('--vy', `${wallIdx % 2 ? CORRIDOR_VY : -CORRIDOR_VY}px`);
+    el.innerHTML = cardHTML(m);
+    // Thumbnail cascade: direct CDN → our same-origin proxy → the plain card.
+    const img = el.querySelector('.emc-thumb');
+    if (img) {
+      img.addEventListener('load', () => img.classList.add('loaded'));
+      img.addEventListener('error', () => {
+        const proxy = img.dataset.proxy;
+        if (proxy && img.src !== location.origin + proxy) { img.dataset.proxy = ''; img.src = proxy; }
+        else img.remove();
+      });
+    }
+    // Was: a chat prefill (`Use <name>: `) — the app then typed a sentence at you and
+    // waited. The card now carries the model into CREATE, where it can actually run.
+    el.querySelector('.emc-open').addEventListener('click', () => enterStudio('', m.id));
+    etTrack.append(el);
+  });
+  corridorDepth = Math.max(1, (models.length - 1) * CORRIDOR_STEP);
+}
+
+/* The corridor and the Models section are both fed from TOP_MODELS above.
+   (In the app this is a live catalogue read; this standalone build has no
+   backend, so the authored list is the whole source of truth.) */
+function loadCatalogue() {
+  return Promise.resolve({ all: TOP_MODELS, corridor: TOP_MODELS.slice(0, CORRIDOR_MAX) });
+}
+// One source feeds both surfaces: the corridor's cards and the Models
+// section's preview plates.
+loadCatalogue().then(({ all, corridor }) => {
+  buildCorridor(corridor);
+  fillStationThumbs(all);
+});
+
+/* ── Reveals ─────────────────────────────────────────────────────────────── */
+const GATES = { nav:[], hero:[], sitemap:[], roadmap:[], impact:[] };
+const latched = { nav:false, hero:false, sitemap:false, roadmap:false, impact:false };
+const latchedAt = {};
+
+function addReveal(gate, el, from, delay, dur, ease) {
+  GATES[gate].push({ el, from, delay, dur: dur || 1000, ease: ease || easeReveal, done: false });
+}
+function splitText(el, mode, baseDelay, hot) {
+  const text = el.textContent;
+  el.textContent = '';
+  const parts = mode === 'letters' ? [...text] : text.split(/(\s+)/);
+  const stagger = mode === 'letters' ? (innerWidth < 855 ? 34 : 22) : 46;
+  const n = parts.length;
+  const out = [];
+  parts.forEach((ch, i) => {
+    const s = document.createElement('span');
+    s.textContent = ch;
+    if (mode === 'letters' && hot) {
+      // white → violet (#a78bfa), the payment menu's card-name gradient, run
+      // across the line one letter at a time. `hot` picks which end is white.
+      const k = n > 1 ? i / (n - 1) : 0;
+      const f = hot === 'left' ? k : 1 - k;
+      s.style.color = `rgba(${lerp(255,167,f)|0},${lerp(255,139,f)|0},${lerp(255,250,f)|0},${lerp(1,0.55,f).toFixed(3)})`;
+    }
+    el.appendChild(s);
+    out.push({ el: s, delay: baseDelay + i * stagger });
+  });
+  return out;
+}
+function registerComposition(compId, gate) {
+  const comp = document.getElementById(compId);
+  comp.querySelectorAll('[data-reveal="letters"]').forEach(h => {
+    const base = +h.dataset.delay || 0;
+    h.querySelectorAll('.mline').forEach((line, li) => {
+      splitText(line, 'letters', base + li * 140, line.dataset.hot)
+        .forEach(p => addReveal(gate, p.el, { o:0, y:14, b:5, s:1 }, p.delay, 1000, easeReveal));
+    });
+  });
+  comp.querySelectorAll('[data-reveal="words"]').forEach(p => {
+    splitText(p, 'words', +p.dataset.delay || 0)
+      .forEach(w => addReveal(gate, w.el, { o:0, y:12, b:4, s:1 }, w.delay, 900, easeReveal));
+  });
+  comp.querySelectorAll('[data-reveal="block"]').forEach(b => {
+    addReveal(gate, b, { o:0, y:24, b:8, s:1 }, +b.dataset.delay || 0, 1000, easeReveal);
+  });
+}
+registerComposition('compHero', 'hero');
+registerComposition('compServices', 'sitemap');
+registerComposition('compTimeline', 'roadmap');
+registerComposition('compExplore', 'impact');
+
+gameRow.querySelectorAll('.game-tile').forEach(tile => {
+  addReveal('sitemap', tile, { o:0, y:28, b:10, s:0.96 }, +tile.dataset.delay, 1300, easeSpring);
+});
+/* The deck comes THROUGH the fourth wall: each card starts out in front of the
+   screen, square-on to the viewer and pulled toward the centre of its travel,
+   then drifts back and turns onto its wall. easeSpring overshoots past 1, so a
+   card settles slightly through its resting plane and eases back out — which is
+   what makes it read as floating into place rather than snapping. */
+heroDeck.querySelectorAll('.hdc').forEach(card => {
+  addReveal('hero', card, { fly:true }, +card.dataset.delay, 1500, easeSpring);
+});
+addReveal('roadmap', baselineEl, { scaleX:1 }, 120, 1200, easeReveal);
+trackEl.querySelectorAll('.station-shot').forEach(s => addReveal('roadmap', s, { o:0, y:28, b:10, s:0.96 }, +s.dataset.delay, 1300, easeSpring));
+trackEl.querySelectorAll('.tick').forEach(t => addReveal('roadmap', t, { scaleY:1 }, +t.dataset.delay, 1000, easeReveal));
+trackEl.querySelectorAll('.marker').forEach(m => addReveal('roadmap', m, { o:0, s:0.4 }, +m.dataset.delay, 900, easeSpring));
+trackEl.querySelectorAll('.station-head').forEach(h => addReveal('roadmap', h, { o:0, y:26, b:8, s:1 }, +h.dataset.delay, 1200, easeReveal));
+trackEl.querySelectorAll('.station-body').forEach(b => addReveal('roadmap', b, { o:0, y:26, b:8, s:1 }, +b.dataset.delay, 1200, easeReveal));
+document.querySelectorAll('.nav .pill').forEach((p, i) => {
+  addReveal('nav', p, { o:0, y:-10, b:6, s:1, skew:true }, [220, 320][i] || 120, 1000, easeReveal);
+});
+// Not part of the nav row at all now, but still rides the same gate — it
+// should fade in at the same moment the nav does.
+addReveal('nav', document.querySelector('.corner-icon'), { o:0, y:-10, b:6, s:1 }, 120, 1000, easeReveal);
+
+function tickReveals(now) {
+  for (const gate in GATES) {
+    if (!latched[gate]) continue;
+    const t0 = latchedAt[gate];
+    for (const r of GATES[gate]) {
+      if (r.done) continue;
+      const t = clamp01((now - t0 - r.delay) / r.dur);
+      const e = r.ease(t);
+      const f = r.from;
+      if (f.fly) {
+        // One scalar: the .hdc rule composes the whole 3D transform from it.
+        // `e` overshoots past 1 under easeSpring, so --fly goes slightly
+        // negative and the card settles back out of its wall — left in on
+        // purpose; clamping it is what makes the landing look like a snap.
+        const k = 1 - e;
+        r.el.style.setProperty('--fly', k.toFixed(4));
+        r.el.style.opacity = clamp01(e * 1.7).toFixed(3);
+        const bl = k * 9;
+        r.el.style.filter = bl > 0.05 ? `blur(${bl.toFixed(2)}px)` : '';
+      }
+      else if (f.scaleX !== undefined) { r.el.style.transform = `scaleX(${e})`; }
+      else if (f.scaleY !== undefined) { r.el.style.transform = `scaleY(${e})`; }
+      else {
+        const parts = [];
+        if (f.y) parts.push(`translateY(${lerp(f.y, 0, e).toFixed(2)}px)`);
+        if (f.s !== undefined && f.s !== 1) parts.push(`scale(${lerp(f.s, 1, e).toFixed(4)})`);
+        if (f.skew) parts.unshift('skewX(-8deg)');
+        r.el.style.opacity = (f.o === undefined ? 1 : lerp(f.o, 1, e)).toFixed(3);
+        r.el.style.transform = parts.join(' ');
+        const bl = f.b ? lerp(f.b, 0, e) : 0;
+        r.el.style.filter = bl > 0.05 ? `blur(${bl.toFixed(2)}px)` : '';
+      }
+      if (t >= 1) r.done = true;
+    }
+  }
+}
+function latch(gate, now) {
+  if (latched[gate]) return;
+  latched[gate] = true; latchedAt[gate] = now;
+}
+
+/* ── Nav interactions ────────────────────────────────────────────────────── */
+let lenis = null;
+function gotoSlide(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const y = el.getBoundingClientRect().top + (window.scrollY || 0) + 4;
+  if (lenis) lenis.scrollTo(y, { duration: 1.4 }); else scrollTo({ top: y, behavior: 'smooth' });
+}
+document.querySelectorAll('[data-goto]').forEach(b =>
+  b.addEventListener('click', () => gotoSlide(b.dataset.goto)));
+
+/* ── CTA wiring ──────────────────────────────────────────────────────────────
+   EDIT ME. Point these at the real destinations and every call to action on the
+   page starts working: the nav's "Enter Studio", the nav's "Pricing", the two
+   "Start Building" bars, and each corridor card's open button.
+
+   `enter` receives the typed prompt as ?prompt= and, from a corridor card, the
+   model as ?model=. Left as empty strings the buttons are inert no-ops (they
+   only log), which is the safe default for a page with nowhere to send anyone.
+
+   When this page is embedded in a host app it ignores the links entirely and
+   posts the same intent to window.parent instead. */
+const STANDALONE_LINKS = {
+  enter:   '',   // e.g. 'https://app.example.com/'
+  pricing: '',   // e.g. 'https://example.com/pricing'
+};
+
+function postHost(msg) {
+  const payload = { source: 'arcanion-landing', ...msg };
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage(payload, '*');
+    return;
+  }
+  const base = STANDALONE_LINKS[msg.type];
+  if (!base) { console.info('[landing] no destination configured for:', payload); return; }
+  const url = new URL(base, location.href);
+  if (msg.prompt)  url.searchParams.set('prompt', msg.prompt);
+  if (msg.modelId) url.searchParams.set('model', msg.modelId);
+  location.href = url.toString();
+}
+// `modelId` rides on the SAME message rather than adding a second type — a card
+// that opens the studio is still an 'enter', it just says which model the user
+// was looking at.
+function enterStudio(prompt, modelId) {
+  postHost({ type: 'enter', prompt: prompt || '', modelId: modelId || '' });
+}
+document.getElementById('navEnter').addEventListener('click', () => enterStudio(''));
+document.getElementById('navPricing').addEventListener('click', () => postHost({ type: 'pricing' }));
+document.querySelectorAll('[data-start-form]').forEach(form => {
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    enterStudio(form.querySelector('.sb-field').value.trim());
+  });
+});
+// hover spring on the pills (JS-timed — the page uses no CSS transitions)
+document.querySelectorAll('.nav .pill, .sb-submit').forEach(el => {
+  let hov = 0, target = 0, raf = 0;
+  const step = () => {
+    hov += (target - hov) * 0.18;
+    const isPill = el.classList.contains('pill');
+    const s = 1 + hov * (isPill ? 0.04 : 0.03);
+    el.style.transform = isPill ? `skewX(-8deg) scale(${s.toFixed(4)})` : `skewX(8deg) scale(${s.toFixed(4)})`;
+    if (Math.abs(target - hov) > 0.001) raf = requestAnimationFrame(step); else raf = 0;
+  };
+  const kick = v => { target = v; if (!raf) raf = requestAnimationFrame(step); };
+  el.addEventListener('pointerenter', () => kick(1));
+  el.addEventListener('pointerleave', () => kick(0));
+});
+
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+const navEl = document.getElementById('nav');
+function layout() {
+  const w = innerWidth, h = innerHeight;
+  const contain = Math.min(w / 1440, h / 800), width = w / 1440;
+  const root = document.documentElement.style;
+  root.setProperty('--fit-contain', contain);
+  root.setProperty('--fit-width', width);
+  if (w >= 856) {
+    navEl.style.top = (10 * contain) + 'px';
+    navEl.style.transform = `translateX(-50%) scale(${contain})`;
+  } else {
+    navEl.style.top = '0px';
+    navEl.style.left = '0';
+    navEl.style.transform = 'none';
+    navEl.style.padding = '12px 12px 0';
+    navEl.style.width = '100%';
+  }
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  renderer.setPixelRatio(pixelRatio());
+  renderer.setSize(w, h, false);
+  composer.setPixelRatio(pixelRatio());
+  composer.setSize(w, h);
+  morphMat.uniforms.uRes.value.set(w * pixelRatio(), h * pixelRatio());
+  warpMat.uniforms.uResolution.value.set(w, h);
+  warpMat.uniforms.uSpread.value = Math.max(1, w / h);
+  measureSlides();
+  updateScrollState();
+}
+
+/* ── Composition opacities (each fades with its own scene-fade) ──────────── */
+const compHero = document.getElementById('compHero');
+const compServices = document.getElementById('compServices');
+const compTimeline = document.getElementById('compTimeline');
+const compExplore = document.getElementById('compExplore');
+
+function setComp(el, o, drift) {
+  el.style.opacity = o.toFixed(3);
+  el.style.transform = drift ? `translateY(${drift.toFixed(1)}px)` : '';
+  el.classList.toggle('is-live', o > 0.5);
+}
+function driveCompositions() {
+  const S = scrollState;
+  // Computed once in driveCamera (which runs first) — s2 in particular is on the
+  // rail-frozen clock, so recomputing it here would fade the Games copy out while
+  // its own rail was still travelling.
+  const { s1, s2, s3 } = frame;
+
+  setComp(compHero, 1 - smoothstep(0.04, 0.40, s1), -40 * smoothstep(0.04, 0.40, s1));
+  setComp(compServices, smoothstep(0.30, 0.62, s1) * (1 - smoothstep(0.05, 0.38, s2)), 0);
+  setComp(compTimeline, smoothstep(0.35, 0.70, s2) * (1 - smoothstep(0.74, 0.98, s3)), 0);
+  setComp(compExplore, smoothstep(0.10, 0.45, frame.exploreAmt), 0);
+
+  // the Games rail travels on the Games slide's own local progress
+  if (innerWidth >= 856) {
+    const gp = smoothstep(0, 1, S.local.sitemap);
+    gameRow.style.transform = `translateX(${(-gp * GAME_TRAVEL).toFixed(2)}px)`;
+  } else {
+    gameRow.style.transform = '';
+  }
+
+  // the Models rail travels right-to-left on that slide's own local progress
+  const p = smoothstep(0, 1, S.local.roadmap);
+  if (innerWidth >= 856) {
+    trackEl.style.transform = `translateX(${(-p * TRAVEL).toFixed(2)}px)`;
+  } else {
+    const over = Math.max(0, trackEl.scrollHeight - (innerHeight - 200));
+    trackEl.style.transform = `translateY(${(-p * over).toFixed(2)}px)`;
+  }
+
+  // the corridor flies on the Explore slide's local progress — one continuous
+  // scroll out of Models, no cross-fade seam
+  if (innerWidth >= 856) {
+    const flyP = smoothstep(0.12, 1, S.local.impact);
+    etTrack.style.setProperty('--flyz', `${(flyP * corridorDepth).toFixed(1)}px`);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PRELOADER → HANDOFF
+   ════════════════════════════════════════════════════════════════════════════ */
+const LOAD_MS = 1800, SURGE_MS = 650;
+const plFill = document.getElementById('plFill'), plPct = document.getElementById('plPct');
+const preloader = document.getElementById('preloader');
+let loadStart = performance.now(), surgeStart = 0, warpDone = false;
+
+/* ════════════════════════════════════════════════════════════════════════════
+   FRAME LOOP
+   ════════════════════════════════════════════════════════════════════════════ */
+const FRAME_MS = TIER === 'mobile' ? 1000 / 30 : TIER === 'tablet' ? 1000 / 45 : 0;
+let lastDraw = 0, hidden = false, frozen = false;
+document.addEventListener('visibilitychange', () => { hidden = document.hidden; });
+
+function tick(nowMs) {
+  requestAnimationFrame(tick);
+  if (hidden) return;
+  if (FRAME_MS && nowMs - lastDraw < FRAME_MS) return;
+  lastDraw = nowMs;
+
+  const t = nowMs / 1000;
+  if (lenis) lenis.raf(nowMs);
+  updateScrollState();
+
+  warpMat.uniforms.iTime.value = t;
+
+  /* ── preloader ── */
+  if (!warpDone) {
+    const p = clamp01((nowMs - loadStart) / LOAD_MS);
+    plFill.style.transform = `scaleX(${p})`;
+    plPct.textContent = String(Math.round(p * 100)).padStart(3, '0');
+    warpMat.uniforms.uBoost.value = p;
+    if (p >= 1 && !surgeStart) surgeStart = nowMs;
+    if (surgeStart) {
+      const s = clamp01((nowMs - surgeStart) / SURGE_MS);
+      warpMat.uniforms.uSurge.value = s;
+      warpMat.uniforms.uOpacity.value = 1 - s;
+      preloader.style.opacity = String(1 - s);
+      if (s >= 1) {
+        warpDone = true;
+        warp.visible = false;                 // kept alive for the corridor
+        warpMat.uniforms.uSurge.value = 0;
+        preloader.remove();
+        appearStart = nowMs; sceneArmed = true;
+        latch('nav', nowMs); latch('hero', nowMs);
+        window.__arcanionSceneReady = true;
+      }
+    }
+  }
+
+  appear = sceneArmed ? 1 - Math.pow(1 - clamp01((nowMs - appearStart) / 1800), 3) : 0;
+
+  if (sceneArmed) {
+    const a = scrollState.active;
+    if (a === 'sitemap') latch('sitemap', nowMs);
+    if (a === 'roadmap') latch('roadmap', nowMs);
+    if (a === 'impact')  latch('impact', nowMs);
+  }
+
+  if (!frozen) {
+    const { t1, t2, exploreAmt } = driveCamera(t);
+
+    morphMat.uniforms.iTime.value = t;
+    morphMat.uniforms.uUniTime.value = t + 6;
+    morphMat.uniforms.uT1.value = t1;
+    morphMat.uniforms.uT2.value = t2;
+    morphMat.uniforms.uNeedUni.value   = t1 < 1 ? 1 : 0;
+    morphMat.uniforms.uNeedBurst.value = (t1 > 0 && t2 < 1) ? 1 : 0;
+    morphMat.uniforms.uNeedMael.value  = t2 > 0 ? 1 : 0;
+    morphMat.uniforms.uMaelPhase.value = scrollState.local.roadmap;
+
+    // the cloud dissolves as the corridor takes the frame
+    const dissolve = smoothstep(0.15, 0.9, exploreAmt);
+    morphMat.uniforms.uAlpha.value = appear * (1 - dissolve);
+
+    for (const key of ['coreStrength','coreSize','coreSharp','haloAmount','haloWidth','haloFalloff']) {
+      const U = 'u' + key[0].toUpperCase() + key.slice(1);
+      morphMat.uniforms[U].value = blend3(GLOW.uni[key], GLOW.burst[key], GLOW.mael[key], t1, t2);
+    }
+
+    const P = POINTER_FORCE, gate = pointer.moved && !isTouch ? 1 : 0;
+    morphMat.uniforms.uPointer.value.copy(pointerWorld);
+    morphMat.uniforms.uPointerAxis.value.copy(_look);
+    morphMat.uniforms.uPointerR.value     = blend3(P.uni.radius, P.burst.radius, P.mael.radius, t1, t2);
+    morphMat.uniforms.uPointerPush.value  = blend3(P.uni.push,  P.burst.push,  P.mael.push,  t1, t2) * gate;
+    morphMat.uniforms.uPointerSwirl.value = blend3(P.uni.swirl, P.burst.swirl, P.mael.swirl, t1, t2) * gate;
+    morphMat.uniforms.uPointerGlow.value  = blend3(P.uni.glow,  P.burst.glow,  P.mael.glow,  t1, t2) * gate;
+
+    starMat.uniforms.iTime.value = t;
+    starMat.uniforms.uAlpha.value = Math.min(1, appear * 1.4);
+    dustMat.uniforms.iTime.value = t;
+    dustMat.uniforms.uAlpha.value = appear;
+
+    // the warp returns as the corridor's tunnel backdrop
+    if (warpDone) {
+      const tun = smoothstep(0.2, 0.85, exploreAmt);
+      warp.visible = tun > 0.01;
+      warpMat.uniforms.uBoost.value = 0.35 + 0.45 * tun;
+      warpMat.uniforms.uOpacity.value = tun * 0.85;
+    }
+
+    if (reducedMotion && appear >= 0.999) frozen = true;
+  }
+
+  driveCompositions();
+  tickReveals(nowMs);
+
+  finalPass.uniforms.iTime.value = t;
+  composer.render();
+}
+
+/* ── Boot ────────────────────────────────────────────────────────────────── */
+layout();
+addEventListener('resize', layout, { passive: true });
+
+if (typeof Lenis === 'function') {
+  lenis = new Lenis({ smoothWheel: true });
+} else {
+  console.warn('[landing] Lenis did not load — falling back to native scrolling.');
+}
+
+requestAnimationFrame(tick);
+window.__arcanionSceneBooted = true;
+</script>
+
+<script>
+/* Fail-soft guard (island deviation #2): if the module never boots — CDN
+   unreachable, WebGL refused, importmap unsupported — the page must not be a
+   blank void. Reveal every composition as a plain stacked document and say why,
+   loudly. Silence here would disguise a dead CDN as "the landing page is broken". */
+window.addEventListener('error', e => {
+  if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+    console.error('[landing] asset failed to load:', e.target.src || e.target.href, e);
+  }
+}, true);
+setTimeout(() => {
+  if (window.__arcanionSceneReady) return;
+  console.error(
+    '[landing] the WebGL scene did not become ready within 8s. ' +
+    'booted=' + !!window.__arcanionSceneBooted + ' webgl=' +
+    !!document.createElement('canvas').getContext('webgl2') +
+    ' — falling back to the static composition. Most likely cause: three.js/Lenis ' +
+    'could not be fetched from unpkg (offline desktop build?).'
+  );
+  document.body.classList.add('no-scene');
+}, 8000);
+</script>
+
+</body>
+</html>
