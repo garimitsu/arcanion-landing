@@ -31,9 +31,9 @@
     * Motion is JS-timed throughout; the page uses no CSS transitions except
       the corridor card's 720ms flip.
 
-  CTA wiring: set STANDALONE_LINKS near the top of the module script to point
-  "Enter Studio" / "Pricing" / "Start Building" at real URLs. Left empty they
-  are no-ops.
+  CTA wiring: set STANDALONE_LINKS in the module script to point the nav's
+  "Pricing" and the cards' "open" action at real URLs. Left empty they are
+  no-ops.
 -->
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -182,18 +182,6 @@ input{font:inherit;color:inherit}
   box-shadow:0 0 28px var(--accent-dim), 0 18px 44px rgba(0,0,0,.55);
 }
 .pill>*{transform:skewX(var(--unskew))}
-.brackets{
-  position:absolute;inset:6px;pointer-events:none;opacity:.85;transform:none !important;
-  background:
-    linear-gradient(var(--accent),var(--accent)) top    left  / 10px 2px no-repeat,
-    linear-gradient(var(--accent),var(--accent)) top    left  / 2px 10px no-repeat,
-    linear-gradient(var(--accent),var(--accent)) top    right / 10px 2px no-repeat,
-    linear-gradient(var(--accent),var(--accent)) top    right / 2px 10px no-repeat,
-    linear-gradient(var(--accent),var(--accent)) bottom left  / 10px 2px no-repeat,
-    linear-gradient(var(--accent),var(--accent)) bottom left  / 2px 10px no-repeat,
-    linear-gradient(var(--accent),var(--accent)) bottom right / 10px 2px no-repeat,
-    linear-gradient(var(--accent),var(--accent)) bottom right / 2px 10px no-repeat;
-}
 
 /* ─── Corner icon ────────────────────────────────────────────────────────── */
 /* The page's own portrait mark, pinned at the literal top-left corner of the
@@ -214,8 +202,15 @@ input{font:inherit;color:inherit}
 
 /* ─── Nav ────────────────────────────────────────────────────────────────── */
 .nav{position:fixed;left:50%;z-index:120;transform-origin:top center;pointer-events:none}
-.nav-row{position:relative;display:flex;align-items:center;gap:4px;pointer-events:auto}
+.nav-row{position:relative;display:flex;align-items:center;justify-content:center;gap:4px;pointer-events:auto}
 .nav .pill{opacity:0}
+/* The lockup's tagline, sitting under the links. It is a sibling of .nav-row
+   inside .nav, so it inherits the nav's fixed placement and the JS `contain`
+   scale for free, and stays under `.nav`'s pointer-events:none. */
+.nav-tagline{
+  display:block;margin:16px auto 0;width:640px;max-width:100%;height:auto;opacity:0;
+  filter:drop-shadow(0 0 14px var(--accent-dim));
+}
 .nav-links{padding:12px 32px}
 .nav-links ul{display:flex;gap:30px}
 /* The links wear the white→violet card fill
@@ -232,15 +227,6 @@ input{font:inherit;color:inherit}
   -webkit-text-fill-color:transparent;color:transparent;
   filter:drop-shadow(0 0 12px var(--accent-dim));
 }
-.nav-cta{padding:0}
-.nav-cta button{
-  display:flex;align-items:center;gap:8px;padding:12px 28px;
-  background-image:var(--gradient-cta);
-  font-family:var(--font-display-2);font-weight:700;font-size:13px;letter-spacing:.2em;
-  text-transform:uppercase;color:var(--text);white-space:nowrap;
-}
-.nav-cta .dot{width:3px;height:3px;background:var(--foreground);flex:0 0 auto}
-
 /* ─── Mastheads ──────────────────────────────────────────────────────────── */
 /* Digital Cards, like every other display face on the page. It carries the
    white→violet card gradient the same way — but PER LETTER, painted in JS, not
@@ -357,27 +343,6 @@ input{font:inherit;color:inherit}
   color:var(--text);text-align:center;
 }
 .subtitle span{display:inline-block;white-space:pre;opacity:0;will-change:transform,opacity,filter}
-
-.startbar{position:absolute;top:703px;left:409px;width:623px;opacity:0;z-index:5}
-.startbar .pill{padding:2px 2px 2px 32px;gap:20px;width:100%}
-.sb-field{
-  flex:1 1 auto;min-width:0;background:transparent;border:none;outline:none;
-  font-family:var(--font-prose);font-weight:500;font-size:16px;color:var(--text);
-}
-.sb-field::placeholder{color:rgba(255,255,255,.5)}
-.sb-submit{
-  display:flex;align-items:center;gap:12px;padding:2px 28px 2px 2px;flex:0 0 auto;
-  background-image:var(--gradient-cta);
-}
-.sb-disc{
-  width:39px;height:39px;border-radius:9999px;background:var(--foreground);
-  display:flex;align-items:center;justify-content:center;flex:0 0 auto;
-}
-.sb-disc svg{width:23px;height:23px}
-.sb-label{
-  font-family:var(--font-display-2);font-weight:700;font-size:13px;letter-spacing:.2em;
-  text-transform:uppercase;color:var(--text);white-space:nowrap;
-}
 
 /* ─── Games ──────────────────────────────────────────────────────────────── */
 .comp-services .masthead{top:170px}
@@ -530,7 +495,9 @@ input{font:inherit;color:inherit}
      to the viewport corner independent of the nav row at every breakpoint. */
   .nav-row{justify-content:flex-end;width:100%}
   .nav-links{display:none}
-  .nav-cta button{padding:10px 18px;font-size:11px}
+  /* Narrowed and centred so it clears the fixed corner icon (36px at 16,16),
+     which it would otherwise run straight through once the links pill is gone. */
+  .nav-tagline{width:min(300px,64vw);margin:14px auto 0}
 
   .frame{position:absolute;inset:0;top:0;left:0;width:100%;height:100%;transform:none !important;
     display:flex;flex-direction:column;align-items:center;overflow:hidden}
@@ -542,14 +509,10 @@ input{font:inherit;color:inherit}
 
   .comp-hero .frame{gap:20px;padding:88px 20px 28px;justify-content:center}
   /* The deck is dropped for the same reason as the nav links pill: three cards
-     plus the subtitle plus the start bar do not fit a phone hero, and every
-     destination they hold is reachable by scrolling or by Enter Studio. */
+     plus the subtitle do not fit a phone hero, and every destination they hold
+     is reachable by scrolling. */
   .hero-deck{display:none}
   .subtitle{font-size:15px}
-  .startbar .pill{flex-direction:column;gap:10px;padding:10px;align-items:stretch}
-  .startbar .pill>*{width:100%}
-  .sb-field{padding:14px 18px;background:rgba(255,255,255,.06)}
-  .sb-submit{justify-content:center;padding:2px 18px 2px 2px}
 
   .comp-services .frame{gap:18px;padding:96px 24px 32px;justify-content:center}
   /* On a phone the rail becomes a plain vertical stack — no travel. */
@@ -582,8 +545,6 @@ input{font:inherit;color:inherit}
   .emc-flip{transform:none !important;height:auto}
   .emc-back{display:none}
   .emc-front{position:relative;inset:auto;min-height:210px}
-  .comp-explore .frame{justify-content:flex-end;padding:0 20px 28px;pointer-events:none}
-  .comp-explore .startbar{pointer-events:auto}
 }
 
 /* ─── Scene-failure fallback: never a blank page ─────────────────────────── */
@@ -594,8 +555,8 @@ body.no-scene .comp *{pointer-events:auto}
 body.no-scene .scroller{display:none}
 body.no-scene .mline span,body.no-scene .subtitle span,
 body.no-scene .station-head,body.no-scene .station-body,body.no-scene .station-shot,
-body.no-scene .game-tile,
-body.no-scene .startbar,body.no-scene .nav .pill,
+body.no-scene .game-tile,body.no-scene .nav .pill,
+body.no-scene .nav-tagline,
 body.no-scene .corner-icon{opacity:1 !important;filter:none !important;transform:none !important}
 /* The deck keeps its CSS wall transform — that IS its layout, not an entrance. */
 body.no-scene .hdc{opacity:1 !important;filter:none !important}
@@ -642,11 +603,9 @@ body.no-scene .u-grad{filter:drop-shadow(0 0 16px var(--accent-soft)) !important
         <li><button type="button" id="navPricing">Pricing</button></li>
       </ul>
     </div>
-
-    <div class="pill nav-cta" data-nav="1">
-      <button type="button" id="navEnter">Enter Studio<span class="dot"></span></button>
-    </div>
   </div>
+  <img class="nav-tagline" src="/images/where-dreams-are-reality.png"
+       alt="Where dreams are reality" width="1600" height="49" decoding="async" />
 </header>
 
 <!-- ── 1. Hero ───────────────────────────────────────────────────────────── -->
@@ -654,23 +613,12 @@ body.no-scene .u-grad{filter:drop-shadow(0 0 16px var(--accent-soft)) !important
   <div class="frame" data-fit="contain">
     <!-- First child on purpose: `.comp.is-live *` forces pointer-events:auto on
          every descendant, so this full-inset stage must sit BENEATH the subtitle
-         and start bar in paint order or it would swallow their clicks. -->
+         in paint order or it would swallow its clicks. -->
     <div class="hero-deck">
       <div class="hero-deck-in" id="heroDeck"><!-- cards injected from HERO_DECK --></div>
     </div>
 
     <p class="subtitle" data-reveal="words" data-delay="240">Characters, worlds, and engine — one system that builds what you imagine, without ever learning an engine.</p>
-
-    <div class="startbar" data-reveal="block" data-delay="440">
-      <form class="pill" data-start-form>
-        <div class="brackets"></div>
-        <input class="sb-field" type="text" placeholder="Describe what you want to build…" aria-label="Describe what you want to build" />
-        <button class="sb-submit" type="submit">
-          <span class="sb-disc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="#07070f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
-          <span class="sb-label">Start Building</span>
-        </button>
-      </form>
-    </div>
   </div>
 </section>
 
@@ -705,18 +653,6 @@ body.no-scene .u-grad{filter:drop-shadow(0 0 16px var(--accent-soft)) !important
 <section class="comp comp-explore" id="compExplore" aria-label="Explore the model catalogue">
   <div class="et-stage" id="etStage">
     <div class="et-track" id="etTrack"><!-- cards injected from TOP_MODELS --></div>
-  </div>
-  <div class="frame" data-fit="contain">
-    <div class="startbar" data-reveal="block" data-delay="360">
-      <form class="pill" data-start-form>
-        <div class="brackets"></div>
-        <input class="sb-field" type="text" placeholder="Describe what you want to build…" aria-label="Describe what you want to build" />
-        <button class="sb-submit" type="submit">
-          <span class="sb-disc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="#07070f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
-          <span class="sb-label">Start Building</span>
-        </button>
-      </form>
-    </div>
   </div>
 </section>
 
@@ -2052,6 +1988,8 @@ document.querySelectorAll('.nav .pill').forEach((p, i) => {
 // Not part of the nav row at all now, but still rides the same gate — it
 // should fade in at the same moment the nav does.
 addReveal('nav', document.querySelector('.corner-icon'), { o:0, y:-10, b:6, s:1 }, 120, 1000, easeReveal);
+// A beat behind the links pill (220), so the lockup resolves top-down.
+addReveal('nav', document.querySelector('.nav-tagline'), { o:0, y:-10, b:6, s:1 }, 420, 1000, easeReveal);
 
 function tickReveals(now) {
   for (const gate in GATES) {
@@ -2107,12 +2045,15 @@ document.querySelectorAll('[data-goto]').forEach(b =>
 
 /* ── CTA wiring ──────────────────────────────────────────────────────────────
    EDIT ME. Point these at the real destinations and every call to action on the
-   page starts working: the nav's "Enter Studio", the nav's "Pricing", the two
-   "Start Building" bars, and each corridor card's open button.
+   page starts working:
 
-   `enter` receives the typed prompt as ?prompt= and, from a corridor card, the
-   model as ?model=. Left as empty strings the buttons are inert no-ops (they
-   only log), which is the safe default for a page with nowhere to send anyone.
+     `pricing` — the nav's "Pricing" button.
+     `enter`   — the hero deck's MCP and Providers cards, and every corridor
+                 card's "Open in Arcanion" button. A corridor card appends the
+                 model it was showing as ?model=.
+
+   Left as empty strings the buttons are inert no-ops (they only log), which is
+   the safe default for a page with nowhere to send anyone.
 
    When this page is embedded in a host app it ignores the links entirely and
    posts the same intent to window.parent instead. */
@@ -2140,16 +2081,9 @@ function postHost(msg) {
 function enterStudio(prompt, modelId) {
   postHost({ type: 'enter', prompt: prompt || '', modelId: modelId || '' });
 }
-document.getElementById('navEnter').addEventListener('click', () => enterStudio(''));
 document.getElementById('navPricing').addEventListener('click', () => postHost({ type: 'pricing' }));
-document.querySelectorAll('[data-start-form]').forEach(form => {
-  form.addEventListener('submit', e => {
-    e.preventDefault();
-    enterStudio(form.querySelector('.sb-field').value.trim());
-  });
-});
 // hover spring on the pills (JS-timed — the page uses no CSS transitions)
-document.querySelectorAll('.nav .pill, .sb-submit').forEach(el => {
+document.querySelectorAll('.nav .pill').forEach(el => {
   let hov = 0, target = 0, raf = 0;
   const step = () => {
     hov += (target - hov) * 0.18;
