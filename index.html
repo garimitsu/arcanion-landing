@@ -349,7 +349,7 @@ input{font:inherit;color:inherit}
 /* A rail, not a row — width is set in JS from the clip count and it travels on
    the slide's local scroll progress, same as the Models stations. */
 .game-row{
-  position:absolute;top:285px;left:0;height:432px;
+  position:absolute;top:250px;left:0;height:432px;
   display:flex;gap:28px;align-items:flex-start;
   will-change:transform;
 }
@@ -1671,7 +1671,7 @@ GAMES.forEach((g, i) => {
 
    Two card kinds. Games/Models are `.hdc-thumb` full-bleed image backgrounds,
    previewed with the very asset their own section already loads: the Games card
-   shows the first title's key art (see GAMES above), the Models card shows the
+   shows Aeoliada's key art (see HERO_GAME below), the Models card shows the
    first station's already `<link rel=preload>`ed thumbnail (no new request). MCP/PROVIDERS are `.hdc-icons` — one or more
    centred marks, not a cropped photo, because a vector logo isn't a
    background image (`flex-wrap` lets Providers' six fit three-per-row).
@@ -1693,9 +1693,13 @@ GAMES.forEach((g, i) => {
    previous ±405 scaled by 0.7. Wall side + vertical offset spread the four
    cards into two rows per wall (vy ±135); the start bar is back at its
    original shared bottom position (`top:703px`), not centred in this gap. */
+/* Looked up by title rather than index, so reordering GAMES cannot silently
+   swap this card's art; the fallback keeps a retitle from throwing. */
+const HERO_GAME = GAMES.find(g => g.title === 'Aeoliada') || GAMES[0];
+
 const HERO_DECK = [
   { side:'left',  vy:-135, delay:280, name:'Games',
-    img:GAMES[0].img, goto:'sitemap' },
+    img:HERO_GAME.img, goto:'sitemap' },
   { side:'right', vy:-135, delay:430, name:'MCP',
     icons:[{ src:'/images/ue-mark.png', big:true }], enter:true },
   { side:'left',  vy:135,  delay:580, name:'Models',
