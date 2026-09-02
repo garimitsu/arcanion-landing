@@ -349,20 +349,33 @@ input{font:inherit;color:inherit}
 /* A rail, not a row — width is set in JS from the clip count and it travels on
    the slide's local scroll progress, same as the Models stations. */
 .game-row{
-  position:absolute;top:300px;left:0;height:259px;
-  display:flex;gap:28px;align-items:flex-start;padding-inline:50px;
+  position:absolute;top:285px;left:0;height:432px;
+  display:flex;gap:28px;align-items:flex-start;
   will-change:transform;
 }
+/* Portrait key art, so the tile is 3:4. `padding-inline` is set in JS, not
+   here: with only a few titles the rail is narrower than the frame, and the
+   padding is what centres it. */
 .game-tile{
-  position:relative;width:460px;height:259px;flex:0 0 auto;overflow:hidden;opacity:0;
-  border:1px solid var(--glass-border);
-  background:linear-gradient(150deg,var(--accent-900) 0%,var(--void-1) 60%);
-  box-shadow:0 24px 50px -18px rgba(0,0,0,.85),0 0 30px var(--accent-dim);
-  clip-path:polygon(0 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%);
+  position:relative;width:324px;height:432px;flex:0 0 auto;opacity:0;
+  display:block;text-decoration:none;cursor:pointer;
 }
-.game-tile video{
+/* The art is a CHILD so the tile keeps both its layout box and its reveal
+   transform: the scroll reveal writes `.game-tile`'s transform, so the hover
+   spring has to drive something else or the two fight over one property.
+   Nothing here clips, which is also what lets the glow spill past the tile.
+
+   Deliberately bare — no border, no gradient ground, no clipped corner. Each
+   of these is finished key art that composes its own edges; the framed plate
+   the video previews sat in fought with them. */
+.game-tile-art{
+  position:absolute;inset:0;
+  will-change:transform,filter;
+}
+.game-tile img{
   position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
 }
+.game-tile:focus-visible{outline:2px solid var(--accent);outline-offset:6px}
 
 /* ─── Models rail ────────────────────────────────────────────────────────── */
 /* Everything that is not the model list sits lower in this composition. */
@@ -518,8 +531,9 @@ input{font:inherit;color:inherit}
   /* On a phone the rail becomes a plain vertical stack — no travel. */
   .game-row{position:relative !important;left:auto !important;top:auto !important;
     width:100% !important;height:auto !important;padding-inline:0;
-    flex-direction:column;gap:14px;align-items:stretch;transform:none !important}
-  .game-tile{width:100% !important;height:auto;aspect-ratio:16/9}
+    flex-direction:column;gap:14px;align-items:center;transform:none !important;
+    padding-inline:0 !important}
+  .game-tile{width:min(280px,74vw) !important;height:auto;aspect-ratio:3/4}
 
   .comp-timeline .frame{padding:92px 24px 20px;justify-content:flex-start;overflow:hidden}
   .track{position:relative !important;height:auto !important;width:100% !important;
@@ -631,7 +645,7 @@ body.no-scene .u-grad{filter:drop-shadow(0 0 16px var(--accent-soft)) !important
     <h2 class="masthead" data-reveal="letters" data-delay="120">
       <span class="mline" data-hot="left">Explore games</span>
     </h2>
-    <div class="game-row" id="gameRow"><!-- tiles injected from GAME_CLIPS --></div>
+    <div class="game-row" id="gameRow"><!-- tiles injected from GAMES --></div>
   </div>
 </section>
 
@@ -1575,56 +1589,77 @@ const TOP_MODELS = [
     thumbProxy:'' },
 ];
 
-/* GAMES section — looping previews from /templates/comingsoon.
- *
- * The load-bearing part is **`autoplay = true` plus a `canplay` → `play()`**. A
- * <video> with no poster paints NOTHING until it has decoded a frame, so an
- * element that is merely preloaded and played later is an empty box in the
- * meantime — that was this section's bug, not the files and not the bandwidth.
- *
- * These clips also do NOT survive an ffmpeg round-trip: `ffprobe` rejects three
- * of them outright ("moov atom not found" — their `mdat` declares a size that
- * overruns `moov`), and anything transcoded from them comes out as garbage.
- * Browsers demux them happily, which is the only thing that matters here.
- * Do not preprocess these files; ship them as they are.
- */
-const GAME_CLIPS = [
-  'tower-defense.mp4',
-  'dungeon-crawler.mp4',
-  'quiz-duel.mp4',
-  'snake.mp4',
+/* GAMES section -- the shipped titles, each a link out to where it is played.
+   Portrait key art (3:4), so the rail is a row of tall plates. */
+const GAMES = [
+  { title:'The Lady of Mentoria',
+    img:'/images/games/lady-of-mentoria.jpg',
+    href:'https://garimitsu.itch.io/tlom' },
+  { title:'Tsumi',
+    img:'/images/games/tsumi.jpg',
+    href:'https://rancic.itch.io/tsumi' },
+  { title:'Aeoliada',
+    img:'/images/games/aeoliada.jpg',
+    href:'https://store.steampowered.com/app/3813780/Aeoliada/' },
 ];
 /* The row is a rail, laid out and travelled exactly like the Models stations:
-   design-pixel tiles on a track wider than the frame, translated by the slide's
-   own local scroll progress. Travel is `trackWidth − frameWidth` so the last
-   tile finishes flush with the right edge rather than scrolling past it. */
-const TILE_W = 460, TILE_GAP = 28, TILE_PAD = 50, FRAME_W = 1440;
-const GAME_TRACK_W = TILE_PAD * 2 + GAME_CLIPS.length * TILE_W + (GAME_CLIPS.length - 1) * TILE_GAP;
+   design-pixel tiles on a track translated by the slide's own local scroll
+   progress. Travel is `trackWidth - frameWidth`, so the last tile finishes
+   flush with the right edge rather than scrolling past it -- and when the
+   titles all fit inside the frame there is nothing to travel, so the padding
+   grows instead and centres them. */
+const TILE_W = 324, TILE_H = 432, TILE_GAP = 28, TILE_PAD = 50, FRAME_W = 1440;
+const GAME_CONTENT_W = GAMES.length * TILE_W + (GAMES.length - 1) * TILE_GAP;
+const GAME_PAD = Math.max(TILE_PAD, (FRAME_W - GAME_CONTENT_W) / 2);
+const GAME_TRACK_W = GAME_PAD * 2 + GAME_CONTENT_W;
 const GAME_TRAVEL = Math.max(0, GAME_TRACK_W - FRAME_W);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
-function clipVideo(file) {
-  const v = document.createElement('video');
-  v.src = `/templates/comingsoon/${encodeURIComponent(file)}`;
-  v.loop = true;
-  v.muted = true;
-  v.playsInline = true;
-  v.autoplay = true;              // decodes and paints a frame without waiting for us
-  v.setAttribute('aria-hidden', 'true');
-  const tryPlay = () => v.play().catch(() => {});   // SILENT-OK: autoplay refusal is
-  v.addEventListener('canplay', tryPlay);           // routine (power saving); the frame
-  tryPlay();                                        // is already painted either way
-  v.addEventListener('error', () => console.warn('[landing] game preview failed to load:', file));
-  return v;
-}
-
 const gameRow = document.getElementById('gameRow');
 gameRow.style.width = GAME_TRACK_W + 'px';
-GAME_CLIPS.forEach((file, i) => {
-  const tile = document.createElement('div');
+gameRow.style.paddingInline = GAME_PAD + 'px';
+
+/* Hover/focus spring. JS-timed like the nav pills, because the page uses no CSS
+   transitions. It drives the ART element for the reason given on
+   `.game-tile-art`, and the glow is a `filter: drop-shadow` rather than a
+   box-shadow so it follows the clipped angled corner instead of a rectangle.
+   The colour is --accent (#ff00cc). */
+function wireGameHover(tile, art) {
+  let hov = 0, target = 0, raf = 0;
+  const step = () => {
+    hov += (target - hov) * 0.18;
+    if (Math.abs(target - hov) < 0.001) hov = target;
+    art.style.transform = `scale(${(1 + hov * 0.05).toFixed(4)})`;
+    art.style.filter = hov < 0.002 ? 'none'
+      : `drop-shadow(0 0 ${(hov * 18).toFixed(1)}px rgba(255,0,204,${(hov * 0.85).toFixed(3)})) ` +
+        `drop-shadow(0 0 ${(hov * 44).toFixed(1)}px rgba(255,0,204,${(hov * 0.45).toFixed(3)}))`;
+    raf = hov === target ? 0 : requestAnimationFrame(step);
+  };
+  const kick = v => { target = v; if (!raf) raf = requestAnimationFrame(step); };
+  tile.addEventListener('pointerenter', () => kick(1));
+  tile.addEventListener('pointerleave', () => kick(0));
+  tile.addEventListener('focus',        () => kick(1));   // keyboard parity
+  tile.addEventListener('blur',         () => kick(0));
+}
+
+GAMES.forEach((g, i) => {
+  // An <a>, not a div: the click target is a real external link, so this gets
+  // keyboard focus, middle-click and open-in-new-tab for free.
+  const tile = document.createElement('a');
   tile.className = 'game-tile';
+  tile.href = g.href;
+  tile.target = '_blank';
+  tile.rel = 'noopener noreferrer';
   tile.dataset.delay = String(220 + i * 110);
-  tile.append(clipVideo(file));
+
+  const art = document.createElement('span');
+  art.className = 'game-tile-art';
+  const img = document.createElement('img');
+  img.alt = g.title; img.decoding = 'async'; img.loading = 'eager'; img.src = g.img;
+  img.addEventListener('error', () => console.warn('[landing] game art failed to load:', g.img));
+  art.append(img);
+  tile.append(art);
+  wireGameHover(tile, art);
   gameRow.append(tile);
 });
 
@@ -1634,12 +1669,10 @@ GAME_CLIPS.forEach((file, i) => {
    straight into the studio), and PROVIDERS (same — a fact about the product,
    not a section). Title only, no description — name + art carry the pitch.
 
-   Two card kinds. Games/Models are `.hdc-thumb` full-bleed photo/clip
-   backgrounds, previewed with the very asset their own section already loads:
-   the Games card runs a `comingsoon` clip through the SAME `clipVideo()` the
-   rail does (autoplay/`canplay` is load-bearing; see GAME_CLIPS above), the
-   Models card shows the first station's already `<link rel=preload>`ed
-   thumbnail (no new request). MCP/PROVIDERS are `.hdc-icons` — one or more
+   Two card kinds. Games/Models are `.hdc-thumb` full-bleed image backgrounds,
+   previewed with the very asset their own section already loads: the Games card
+   shows the first title's key art (see GAMES above), the Models card shows the
+   first station's already `<link rel=preload>`ed thumbnail (no new request). MCP/PROVIDERS are `.hdc-icons` — one or more
    centred marks, not a cropped photo, because a vector logo isn't a
    background image (`flex-wrap` lets Providers' six fit three-per-row).
    `ue-mark.png` is the roundel alone, cropped — the full lockup's
@@ -1662,7 +1695,7 @@ GAME_CLIPS.forEach((file, i) => {
    original shared bottom position (`top:703px`), not centred in this gap. */
 const HERO_DECK = [
   { side:'left',  vy:-135, delay:280, name:'Games',
-    clip:GAME_CLIPS[0], goto:'sitemap' },
+    img:GAMES[0].img, goto:'sitemap' },
   { side:'right', vy:-135, delay:430, name:'MCP',
     icons:[{ src:'/images/ue-mark.png', big:true }], enter:true },
   { side:'left',  vy:135,  delay:580, name:'Models',
@@ -1690,12 +1723,7 @@ HERO_DECK.forEach(c => {
 
   const face = document.createElement('div');
   face.className = 'hdc-face';
-  if (c.clip) {
-    const v = clipVideo(c.clip);
-    v.className = 'hdc-thumb';
-    v.addEventListener('canplay', () => v.classList.add('loaded'));
-    face.append(v);
-  } else if (c.img) {
+  if (c.img) {
     const img = document.createElement('img');
     img.className = 'hdc-thumb'; img.alt = ''; img.decoding = 'async'; img.src = c.img;
     img.addEventListener('load', () => img.classList.add('loaded'));

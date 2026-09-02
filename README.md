@@ -59,7 +59,7 @@ with nowhere to send anyone.
 index.html                  the entire site — markup, styles, scene, controller
 fonts/                      the two local typefaces (the rest come from Google Fonts)
 images/                     brand mark and provider logos
-templates/comingsoon/       the looping game previews in the Games section
+images/games/               key art for the titles in the Games section
 vercel.json                 static-site config + asset cache headers
 ```
 
@@ -87,4 +87,4 @@ Some third-party material ships alongside it:
   Bundled deliberately: it is the display typeface the whole design is set in.
 - `images/*.png` — provider and engine logos, used nominatively to name the
   services Arcanion connects to. Each mark belongs to its owner.
-- `templates/comingsoon/*.mp4` — previews of games built with Arcanion.
+- `images/games/*.jpg` — key art for the linked titles. Each belongs to its game.
