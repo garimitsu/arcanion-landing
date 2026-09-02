@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Arcanion — best models, all-in-one.</title>
+<title>Arcanion — Where Dreams Are Reality</title>
 
 <!--
   ============================================================================
@@ -1671,7 +1671,7 @@ GAMES.forEach((g, i) => {
 
    Two card kinds. Games/Models are `.hdc-thumb` full-bleed image backgrounds,
    previewed with the very asset their own section already loads: the Games card
-   shows Aeoliada's key art (see HERO_GAME below), the Models card shows the
+   shows Aeoliada's header capsule (see HERO_GAME_ART below), the Models card shows the
    first station's already `<link rel=preload>`ed thumbnail (no new request). MCP/PROVIDERS are `.hdc-icons` — one or more
    centred marks, not a cropped photo, because a vector logo isn't a
    background image (`flex-wrap` lets Providers' six fit three-per-row).
@@ -1693,13 +1693,15 @@ GAMES.forEach((g, i) => {
    previous ±405 scaled by 0.7. Wall side + vertical offset spread the four
    cards into two rows per wall (vy ±135); the start bar is back at its
    original shared bottom position (`top:703px`), not centred in this gap. */
-/* Looked up by title rather than index, so reordering GAMES cannot silently
-   swap this card's art; the fallback keeps a retitle from throwing. */
-const HERO_GAME = GAMES.find(g => g.title === 'Aeoliada') || GAMES[0];
+/* The Games card's own asset, not one of the rail's plates: this card is
+   landscape (358x226) and the rail's key art is 3:4, which `object-fit:cover`
+   would crop to a narrow vertical slice. This is the Steam header capsule,
+   authored at that shape. */
+const HERO_GAME_ART = '/images/games/aeoliada-capsule.jpg';
 
 const HERO_DECK = [
   { side:'left',  vy:-135, delay:280, name:'Games',
-    img:HERO_GAME.img, goto:'sitemap' },
+    img:HERO_GAME_ART, goto:'sitemap' },
   { side:'right', vy:-135, delay:430, name:'MCP',
     icons:[{ src:'/images/ue-mark.png', big:true }], enter:true },
   { side:'left',  vy:135,  delay:580, name:'Models',
