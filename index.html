@@ -224,6 +224,14 @@ input{font:inherit;color:inherit}
   display:block;margin:16px auto 0;width:640px;max-width:100%;height:auto;opacity:0;
   filter:drop-shadow(0 0 14px var(--accent-dim));
 }
+.nav-cta{padding:0}
+.nav-cta a{
+  display:flex;align-items:center;gap:8px;padding:12px 28px;text-decoration:none;
+  background-image:var(--gradient-cta);
+  font-family:var(--font-display-2);font-weight:700;font-size:13px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--text);white-space:nowrap;
+}
+.nav-cta .dot{width:3px;height:3px;background:var(--foreground);flex:0 0 auto}
 .nav-links{padding:12px 32px}
 .nav-links ul{display:flex;gap:30px}
 /* The links wear the white→violet card fill
@@ -542,6 +550,7 @@ input{font:inherit;color:inherit}
      to the viewport corner independent of the nav row at every breakpoint. */
   .nav-row{justify-content:flex-end;width:100%}
   .nav-links{display:none}
+  .nav-cta a{padding:10px 18px;font-size:11px}
   /* Narrowed and centred so it clears the fixed corner icon (36px at 16,16),
      which it would otherwise run straight through once the links pill is gone. */
   .nav-tagline{width:min(300px,64vw);margin:14px auto 0}
@@ -656,6 +665,12 @@ body.no-scene .u-grad{filter:drop-shadow(0 0 16px var(--accent-soft)) !important
         <li><button type="button" data-goto="impact">Explore</button></li>
         <li><button type="button" id="navPricing">Pricing</button></li>
       </ul>
+    </div>
+
+    <!-- Leaves this document for the /learn sub-site (the reproduced Helios
+         case study), so it is an anchor, not a postMessage button. -->
+    <div class="pill nav-cta" data-nav="1">
+      <a href="/learn/">Learn more<span class="dot"></span></a>
     </div>
   </div>
   <img class="nav-tagline" src="/images/where-dreams-are-reality.png"

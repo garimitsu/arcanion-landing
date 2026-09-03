@@ -1,0 +1,16 @@
+{
+  "short_name": "ARCANION",
+  "name": "ARCANION — Case Study",
+  "icons": [
+    {
+      "src": "arcanion-icon.png",
+      "type": "image/png",
+      "sizes": "1320x1552",
+      "purpose": "any"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#040706",
+  "background_color": "#040706"
+}

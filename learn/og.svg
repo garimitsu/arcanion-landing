@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="80%">
+      <stop offset="0%" stop-color="#120d16"/>
+      <stop offset="100%" stop-color="#040706"/>
+    </radialGradient>
+    <radialGradient id="core" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#a8ecf2"/>
+      <stop offset="55%" stop-color="#e64bd0"/>
+      <stop offset="100%" stop-color="#5c2050" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#e64bd0" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#e64bd0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- glow halo -->
+  <circle cx="600" cy="280" r="220" fill="url(#glow)"/>
+
+  <!-- orb concentric rings -->
+  <circle cx="600" cy="280" r="120" fill="none" stroke="#e64bd0" stroke-width="3" opacity="0.85"/>
+  <circle cx="600" cy="280" r="78"  fill="none" stroke="#79d6e0" stroke-width="2" opacity="0.7"/>
+  <circle cx="600" cy="280" r="44"  fill="url(#core)"/>
+
+  <!-- wordmark -->
+  <text x="600" y="490"
+        font-family="'Lato', 'Helvetica Neue', Arial, sans-serif"
+        font-size="92" font-weight="400"
+        letter-spacing="14" fill="#ffffff" text-anchor="middle">ARCANION</text>
+
+  <text x="600" y="540"
+        font-family="'Gilroy', 'Helvetica Neue', Arial, sans-serif"
+        font-size="22" font-weight="500"
+        letter-spacing="6" fill="#e64bd0" text-anchor="middle">CASE STUDY · FUSION CONSOLE</text>
+</svg>
