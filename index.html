@@ -2411,48 +2411,74 @@ window.__arcanionSceneBooted = true;
    native submit. That is survivable ONLY because the markup posts to Google on
    its own; this script is the enhancement, not the mechanism.
 
-   `no-cors` is required — Google sends no CORS headers, so the response is
-   opaque and cannot be read. That is the trade for not leaving the page: a
-   resolved promise means the request went out, not that Google stored it. We
-   report the send, and let a network-level rejection fall back to the native
-   submit so a signup is never silently dropped.
+   The post goes through /api/waitlist rather than straight to Google, because
+   the browser cannot confirm its own signup: Google sends no CORS headers, so a
+   direct POST must use `no-cors` and comes back opaque — no status, no body. A
+   resolved promise there means the request left the building, never that Google
+   stored it. The function reads the real response and answers {ok:true} only
+   when Google actually recorded it, so "You're on the list" is never a guess.
 
-   `entry.442508991` is the id of the form's "Your Email" question — per
-   question and per form, so a new form needs this re-read, not just a new URL. */
+   Any failure at all — function missing, network down, Google rejecting —
+   silently opens the prefilled form in a new tab. No error text: the visitor
+   just lands on the form with their address already filled in, and the reason
+   goes to the console. A signup is never dropped and never falsely confirmed. */
 (function () {
-  var ENDPOINT = 'https://docs.google.com/forms/d/e/1FAIpQLSc8q9HDUV_7dZMTuxq8ii2Z31yh2VSEhtpeeorKcgnn7ATfaw/formResponse';
+  var API = '/api/waitlist';
+  var FORM_VIEW = 'https://docs.google.com/forms/d/e/1FAIpQLSc8q9HDUV_7dZMTuxq8ii2Z31yh2VSEhtpeeorKcgnn7ATfaw/viewform';
   var EMAIL_ENTRY = 'entry.442508991';
+
+  function prefilledForm(email) {
+    var u = new URL(FORM_VIEW);
+    u.searchParams.set('usp', 'pp_url');
+    u.searchParams.set(EMAIL_ENTRY, email);
+    return u.toString();
+  }
+
+  // Opened from inside the submit gesture's activation window, so it is a
+  // normal popup rather than a blocked one. If a blocker takes it anyway,
+  // navigate — reaching the form matters more than staying on the page.
+  function openForm(email, why) {
+    console.error('[landing] waitlist not confirmed (' + why + ') — opening the form instead.');
+    var url = prefilledForm(email);
+    var win = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!win) window.location.href = url;
+  }
 
   document.querySelectorAll('[data-waitlist-form]').forEach(function (form) {
     var field = form.querySelector('.sb-field');
     var label = form.querySelector('.sb-label');
     var idle  = label ? label.textContent : 'Join the waitlist';
-    var sent  = false;
+    var done  = false;
 
     form.addEventListener('submit', function (e) {
-      if (sent) { e.preventDefault(); return; }
+      if (done) { e.preventDefault(); return; }
       var email = (field.value || '').trim();
       if (!email || !form.reportValidity()) return;   // let the browser complain
       e.preventDefault();
-
-      var body = new URLSearchParams();
-      body.set(EMAIL_ENTRY, email);
       if (label) label.textContent = 'Joining\u2026';
 
-      fetch(ENDPOINT, { method: 'POST', mode: 'no-cors', body: body })
-        .then(function () {
-          sent = true;
-          field.value = '';
-          field.placeholder = 'See you on the other side.';
-          field.disabled = true;
-          if (label) label.textContent = "You're on the list";
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email })
+      })
+        .then(function (r) {
+          return r.json().catch(function () { return null; }).then(function (data) {
+            if (r.ok && data && data.ok === true) {
+              done = true;
+              field.value = '';
+              field.placeholder = 'Welcome Beyond';
+              field.disabled = true;
+              if (label) label.textContent = "You're on the list";
+              return;
+            }
+            if (label) label.textContent = idle;
+            openForm(email, 'HTTP ' + r.status + ((data && data.reason) ? ' ' + data.reason : ''));
+          });
         })
         .catch(function (err) {
-          // Never swallow, and never lose the signup: hand it to the native
-          // POST the markup already declares.
-          console.error('[landing] waitlist post failed, falling back to the form:', err);
           if (label) label.textContent = idle;
-          form.submit();
+          openForm(email, String(err && err.message ? err.message : err));
         });
     });
   });
