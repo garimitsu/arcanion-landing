@@ -183,6 +183,19 @@ input{font:inherit;color:inherit}
 }
 .pill>*{transform:skewX(var(--unskew))}
 
+.brackets{
+  position:absolute;inset:6px;pointer-events:none;opacity:.85;transform:none !important;
+  background:
+    linear-gradient(var(--accent),var(--accent)) top    left  / 10px 2px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) top    left  / 2px 10px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) top    right / 10px 2px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) top    right / 2px 10px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) bottom left  / 10px 2px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) bottom left  / 2px 10px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) bottom right / 10px 2px no-repeat,
+    linear-gradient(var(--accent),var(--accent)) bottom right / 2px 10px no-repeat;
+}
+
 /* ─── Corner icon ────────────────────────────────────────────────────────── */
 /* The page's own portrait mark, pinned at the literal top-left corner of the
    viewport (Higgsfield-style: small, no border/ring/glow — just the mark).
@@ -343,6 +356,27 @@ input{font:inherit;color:inherit}
   color:var(--text);text-align:center;
 }
 .subtitle span{display:inline-block;white-space:pre;opacity:0;will-change:transform,opacity,filter}
+
+.startbar{position:absolute;top:703px;left:409px;width:623px;opacity:0;z-index:5}
+.startbar .pill{padding:2px 2px 2px 32px;gap:20px;width:100%}
+.sb-field{
+  flex:1 1 auto;min-width:0;background:transparent;border:none;outline:none;
+  font-family:var(--font-prose);font-weight:500;font-size:16px;color:var(--text);
+}
+.sb-field::placeholder{color:rgba(255,255,255,.5)}
+.sb-submit{
+  display:flex;align-items:center;gap:12px;padding:2px 28px 2px 2px;flex:0 0 auto;
+  background-image:var(--gradient-cta);
+}
+.sb-disc{
+  width:39px;height:39px;border-radius:9999px;background:var(--foreground);
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+}
+.sb-disc svg{width:23px;height:23px}
+.sb-label{
+  font-family:var(--font-display-2);font-weight:700;font-size:13px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--text);white-space:nowrap;
+}
 
 /* ─── Games ──────────────────────────────────────────────────────────────── */
 .comp-services .masthead{top:170px}
@@ -526,6 +560,10 @@ input{font:inherit;color:inherit}
      is reachable by scrolling. */
   .hero-deck{display:none}
   .subtitle{font-size:15px}
+  .startbar .pill{flex-direction:column;gap:10px;padding:10px;align-items:stretch}
+  .startbar .pill>*{width:100%}
+  .sb-field{padding:14px 18px;background:rgba(255,255,255,.06)}
+  .sb-submit{justify-content:center;padding:2px 18px 2px 2px}
 
   .comp-services .frame{gap:18px;padding:96px 24px 32px;justify-content:center}
   /* On a phone the rail becomes a plain vertical stack — no travel. */
@@ -559,6 +597,8 @@ input{font:inherit;color:inherit}
   .emc-flip{transform:none !important;height:auto}
   .emc-back{display:none}
   .emc-front{position:relative;inset:auto;min-height:210px}
+  .comp-explore .frame{justify-content:flex-end;padding:0 20px 28px;pointer-events:none}
+  .comp-explore .startbar{pointer-events:auto}
 }
 
 /* ─── Scene-failure fallback: never a blank page ─────────────────────────── */
@@ -569,7 +609,7 @@ body.no-scene .comp *{pointer-events:auto}
 body.no-scene .scroller{display:none}
 body.no-scene .mline span,body.no-scene .subtitle span,
 body.no-scene .station-head,body.no-scene .station-body,body.no-scene .station-shot,
-body.no-scene .game-tile,body.no-scene .nav .pill,
+body.no-scene .game-tile,body.no-scene .startbar,body.no-scene .nav .pill,
 body.no-scene .nav-tagline,
 body.no-scene .corner-icon{opacity:1 !important;filter:none !important;transform:none !important}
 /* The deck keeps its CSS wall transform — that IS its layout, not an entrance. */
@@ -633,6 +673,18 @@ body.no-scene .u-grad{filter:drop-shadow(0 0 16px var(--accent-soft)) !important
     </div>
 
     <p class="subtitle" data-reveal="words" data-delay="240">Characters, worlds, and engine — one system that builds what you imagine, without ever learning an engine.</p>
+
+    <div class="startbar" data-reveal="block" data-delay="440">
+      <form class="pill" data-waitlist-form>
+        <div class="brackets"></div>
+        <input class="sb-field" type="email" name="email" autocomplete="email"
+               placeholder="your@email.com" aria-label="Your email" />
+        <button class="sb-submit" type="submit">
+          <span class="sb-disc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="#07070f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
+          <span class="sb-label">Join the waitlist</span>
+        </button>
+      </form>
+    </div>
   </div>
 </section>
 
@@ -667,6 +719,19 @@ body.no-scene .u-grad{filter:drop-shadow(0 0 16px var(--accent-soft)) !important
 <section class="comp comp-explore" id="compExplore" aria-label="Explore the model catalogue">
   <div class="et-stage" id="etStage">
     <div class="et-track" id="etTrack"><!-- cards injected from TOP_MODELS --></div>
+  </div>
+  <div class="frame" data-fit="contain">
+    <div class="startbar" data-reveal="block" data-delay="360">
+      <form class="pill" data-waitlist-form>
+        <div class="brackets"></div>
+        <input class="sb-field" type="email" name="email" autocomplete="email"
+               placeholder="your@email.com" aria-label="Your email" />
+        <button class="sb-submit" type="submit">
+          <span class="sb-disc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="#07070f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
+          <span class="sb-label">Join the waitlist</span>
+        </button>
+      </form>
+    </div>
   </div>
 </section>
 
@@ -2116,8 +2181,33 @@ function enterStudio(prompt, modelId) {
   postHost({ type: 'enter', prompt: prompt || '', modelId: modelId || '' });
 }
 document.getElementById('navPricing').addEventListener('click', () => postHost({ type: 'pricing' }));
+
+/* The waitlist bars. Google Forms prefills an answer from the query string, so
+   whatever is typed here is carried into the form's own email field and the
+   visitor does not type it twice. `entry.442508991` is the id of that form's
+   "Your Email" question — it is per-question and per-form, so it has to change
+   with the form, not just the link.
+
+   Opened in a new tab so the page survives behind it. An empty box is not an
+   error: it just opens the bare form. No validation beyond the browser's own
+   type="email", since the form asks again and is the real gate. */
+const WAITLIST_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSc8q9HDUV_7dZMTuxq8ii2Z31yh2VSEhtpeeorKcgnn7ATfaw/viewform';
+const WAITLIST_EMAIL_ENTRY = 'entry.442508991';
+
+document.querySelectorAll('[data-waitlist-form]').forEach(form => {
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const email = form.querySelector('.sb-field').value.trim();
+    const url = new URL(WAITLIST_FORM);
+    if (email) {
+      url.searchParams.set('usp', 'pp_url');
+      url.searchParams.set(WAITLIST_EMAIL_ENTRY, email);
+    }
+    window.open(url.toString(), '_blank', 'noopener,noreferrer');
+  });
+});
 // hover spring on the pills (JS-timed — the page uses no CSS transitions)
-document.querySelectorAll('.nav .pill').forEach(el => {
+document.querySelectorAll('.nav .pill, .sb-submit').forEach(el => {
   let hov = 0, target = 0, raf = 0;
   const step = () => {
     hov += (target - hov) * 0.18;
