@@ -1,0 +1,29 @@
+{
+  "files": {
+    "main.css": "/learn/static/css/main.436a584f.css",
+    "main.js": "/learn/static/js/main.368ba4a4.js",
+    "static/media/light-8.png": "/learn/static/media/light-8.9196d839e875589577a2.png",
+    "static/media/delfina.png": "/learn/static/media/delfina.db5b2539440fb08df87a.png",
+    "static/media/galaxia.png": "/learn/static/media/galaxia.10c4fcbca7863abf7853.png",
+    "static/media/describe-demo.mp4": "/learn/static/media/describe-demo.4668c874dc8423bd77c7.mp4",
+    "static/media/miana.png": "/learn/static/media/miana.174c8067e735fcd0917d.png",
+    "static/media/arcanion-girl.png": "/learn/static/media/arcanion-girl.6f391ecf05b365ead05e.png",
+    "static/media/rajdhani.regular.ttf": "/learn/static/media/rajdhani.regular.287f0440f4759b623080.ttf",
+    "static/media/sea-logo.png": "/learn/static/media/sea-logo.547f2d3d65f0eae5a5f4.png",
+    "static/media/deltha.regular.ttf": "/learn/static/media/deltha.regular.3744447122839b18da63.ttf",
+    "static/media/DigitalCards-Regular.ttf": "/learn/static/media/DigitalCards-Regular.843b90e61eb1f17051d8.ttf",
+    "static/media/steam.png": "/learn/static/media/steam.014cea44ceeee9c2ac8c.png",
+    "static/media/ubisoft.png": "/learn/static/media/ubisoft.b5a1396a5d21977c27b7.png",
+    "static/media/moonshot.png": "/learn/static/media/moonshot.02577a19c622a528a6f1.png",
+    "static/media/discord.png": "/learn/static/media/discord.aa3c48b2cf369fab8bd5.png",
+    "static/media/bluesky.png": "/learn/static/media/bluesky.9701e76aa99efacaf220.png",
+    "static/media/tencent.png": "/learn/static/media/tencent.0bc2dd504a364d7dab57.png",
+    "static/media/email.png": "/learn/static/media/email.7401f526365f91e18f71.png",
+    "static/media/bytedance.svg": "/learn/static/media/bytedance.ec3f1d12393931c9898dae7ab074dfb2.svg",
+    "index.html": "/learn/index.html"
+  },
+  "entrypoints": [
+    "static/css/main.436a584f.css",
+    "static/js/main.368ba4a4.js"
+  ]
+}
